@@ -190,7 +190,7 @@ textarea.field { min-height: 96px; resize: vertical; }
 .sw { display: flex; gap: 4px; }
 .sw span { width: 22px; height: 22px; border-radius: 6px; box-shadow: inset 0 0 0 1px rgba(127,127,127,0.3); }
 .code { font-family: var(--display); font-size: 28px; font-weight: 700; letter-spacing: 0.12em; }
-.toast { position: fixed; left: 50%; bottom: calc(96px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); background: var(--text); color: var(--bg); padding: 10px 16px; border-radius: 12px; font-size: 14px; font-weight: 600; z-index: 2000; max-width: calc(100% - 32px); text-align: center; }
+.toast { pointer-events: none; position: fixed; left: 50%; bottom: calc(var(--tabs-h, 66px) + var(--peek, 64px) + 12px); transform: translateX(-50%); background: var(--text); color: var(--bg); padding: 10px 16px; border-radius: 12px; font-size: 14px; font-weight: 600; z-index: 2000; max-width: calc(100% - 32px); text-align: center; }
 .logo { display: flex; align-items: center; gap: 10px; font-family: var(--display); font-weight: 700; font-size: 22px; }
 .logo svg { width: 34px; height: 34px; }
 .loading { padding-block: 60px; text-align: center; color: var(--text2); }
@@ -242,6 +242,36 @@ html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
 /* Rating scale */
 .scalehint { margin: 0; font-size: 14px; color: var(--text2); }
 .scaleends { display: flex; justify-content: space-between; font-size: 12px; font-weight: 600; color: var(--text2); }
+
+/* Full-screen map with a list you can drag away */
+:root { --tabs-h: calc(66px + env(safe-area-inset-bottom, 0px)); --peek: 64px; }
+.tabs { height: var(--tabs-h); box-sizing: border-box; }
+.mapbox { position: fixed; top: 0; left: 0; right: 0; bottom: var(--tabs-h); height: auto; min-height: 0; padding-top: env(safe-area-inset-top, 0px); }
+.mapbox #map { top: 0; }
+.map-top { top: calc(10px + env(safe-area-inset-top, 0px)); }
+.sheet { position: fixed; left: 0; right: 0; bottom: var(--tabs-h); margin: 0 auto; max-width: 520px; height: min(50vh, 470px); display: flex; flex-direction: column;
+  z-index: 600; padding-top: 0; border-radius: 22px 22px 0 0; background: var(--bg); box-shadow: 0 -6px 24px var(--shadow); transition: transform .3s cubic-bezier(.2,.8,.2,1); will-change: transform; }
+.sheet.closed { transform: translateY(calc(100% - var(--peek))); }
+.grab { flex: 0 0 auto; touch-action: none; cursor: grab; user-select: none; -webkit-user-select: none; padding-top: 8px; padding-bottom: 10px; }
+.grab .handle { width: 44px; height: 5px; border-radius: 3px; background: var(--text2); opacity: 0.35; margin: 0 auto 10px; }
+.sheet-body { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; padding-bottom: 12px; }
+.attrib { margin: 8px 0 0; font-size: 11px; color: var(--text2); }
+.attrib a { color: var(--text2); }
+.leaflet-bottom { bottom: var(--peek); }
+@media (prefers-reduced-motion: reduce) { .sheet { transition: none; } }
+
+/* Friend request prompt */
+#prompt { position: fixed; left: 0; right: 0; top: calc(10px + env(safe-area-inset-top, 0px)); z-index: 1200; padding: 0 max(12px, env(safe-area-inset-right, 0px)) 0 max(12px, env(safe-area-inset-left, 0px)); }
+.prompt-card { max-width: 496px; margin: 0 auto; background: var(--bg); color: var(--text); border-radius: 18px; padding: 14px; display: flex; flex-direction: column; gap: 12px; box-shadow: 0 10px 40px rgba(0,0,0,0.28), inset 0 0 0 1.5px var(--trim); }
+
+/* Rows with an action button */
+.person-main { flex: 1; min-width: 0; display: flex; align-items: center; gap: 12px; border: 0; background: none; padding: 0; color: inherit; text-align: left; }
+.btn.sm { min-height: 38px; padding: 0 14px; font-size: 14px; border-radius: 12px; flex: 0 0 auto; }
+.tab { position: relative; }
+.tab .dot { position: absolute; top: -2px; right: 14px; min-width: 18px; height: 18px; padding: 0 5px; border-radius: 9px; background: var(--trim); color: #102347; font-size: 11px; font-weight: 700; display: flex; align-items: center; justify-content: center; }
+.card.mine { box-shadow: inset 0 0 0 1.5px var(--primary); }
+.pin.saved { outline: 2px solid var(--primary); outline-offset: 1px; }
+.splash-invite { margin: -6px 0 6px; padding: 8px 12px; border-radius: 12px; background: rgba(212,160,23,0.18); color: #F6E3A6; font-size: 14px; font-weight: 600; }
 @media (prefers-reduced-motion: no-preference) { .chip, .pill, .pin { transition: background-color .15s ease; } }
 </style>
 </head>
@@ -250,6 +280,7 @@ html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
 <nav class="tabs" id="tabs" aria-label="Main" hidden></nav>
 <div class="toast" id="toast" role="status" hidden></div>
 <div class="viewer" id="viewer" hidden></div>
+<div id="prompt" hidden></div>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
 <script src="config.js"></script>
