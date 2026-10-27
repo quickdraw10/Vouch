@@ -173,27 +173,66 @@
   }
   function logo() { return '<div class="logo"><svg viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="9" fill="var(--primary)"/><path d="M9.5 16.5l4.5 4.5 8.5-10" fill="none" stroke="var(--trim)" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg>Vouch</div>'; }
 
+  function pwField(id, auto, label) {
+    return '<label for="' + id + '" class="lbl-t">' + label + '</label><div class="pw"><input id="' + id + '" class="field" type="password" autocomplete="' + auto + '"' + (auto === 'new-password' ? ' minlength="8"' : '') + ' required>' +
+      '<button type="button" class="pwtoggle" data-pw="' + id + '" aria-label="Show password" aria-pressed="false">Show</button></div>';
+  }
+  var PW_RULE = '<span class="small muted">At least 8 characters, with a capital letter, a lowercase letter, a number and a symbol, e.g. Travel24!</span>';
+
+  function splashArt() {
+    // Stylised map: streets, a gold route and friends' rating pins.
+    return '<svg class="splash-art" viewBox="0 0 400 860" preserveAspectRatio="xMidYMin slice" aria-hidden="true">' +
+      '<g stroke="rgba(255,255,255,0.07)" stroke-width="10" fill="none" stroke-linecap="round">' +
+      '<path d="M-20 150 L420 110"/><path d="M-20 340 L420 380"/><path d="M90 -20 L140 880"/><path d="M310 -20 L270 880"/><path d="M-20 520 L420 490"/></g>' +
+      '<g stroke="rgba(255,255,255,0.05)" stroke-width="4" fill="none"><path d="M-20 250 L420 260"/><path d="M200 -20 L210 880"/><path d="M30 -20 L60 880"/><path d="M370 -20 L350 880"/><path d="M-20 440 L420 450"/></g>' +
+      '<path d="M270 420 C 220 380, 150 350, 140 300 S 270 230, 285 190 S 170 140, 120 110" fill="none" stroke="#D4A017" stroke-width="3" stroke-dasharray="2 9" stroke-linecap="round"/>' +
+      [[270, 420, '8.4', 0], [140, 300, '9.2', 1], [285, 190, '8.9', 0], [120, 110, '9.6', 1]].map(function (p) {
+        return '<g transform="translate(' + p[0] + ' ' + p[1] + ')"><rect x="-34" y="-17" width="68" height="34" rx="17" fill="' + (p[3] ? '#D4A017' : '#FFFFFF') + '"/>' +
+          '<text x="0" y="6" text-anchor="middle" font-family="Inter Tight, Arial, sans-serif" font-weight="700" font-size="16" fill="#102347">★ ' + p[2] + '</text></g>';
+      }).join('') +
+      '</svg>';
+  }
+  function viewSplash() {
+    return '<div class="splash">' + splashArt() +
+      '<div class="splash-in">' +
+      '<div class="splash-mark"><svg viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="9" fill="#102347"/><rect x="0.75" y="0.75" width="30.5" height="30.5" rx="8.4" fill="none" stroke="#D4A017" stroke-width="1"/><path d="M9.5 16.5l4.5 4.5 8.5-10" fill="none" stroke="#D4A017" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg></div>' +
+      '<h1 class="splash-name">Vouch</h1>' +
+      '<p class="splash-tag">Places, rated by people you trust.</p>' +
+      '<div class="splash-actions"><button class="btn gold" data-auth="signin">Log in</button><button class="btn outline-light" data-auth="signup">Create account</button></div>' +
+      '</div></div>';
+  }
+  function friendsArt() {
+    var av = [[18, 22, 'SO'], [82, 18, 'PS'], [12, 78, 'TM'], [86, 74, 'AK']];
+    return '<div class="friends-art" aria-hidden="true"><svg viewBox="0 0 100 100" preserveAspectRatio="none">' +
+      av.map(function (a) { return '<path d="M' + a[0] + ' ' + a[1] + ' Q 50 50 50 50" stroke="var(--line)" stroke-width="0.6" stroke-dasharray="1.5 2" fill="none" vector-effect="non-scaling-stroke"/>'; }).join('') + '</svg>' +
+      av.map(function (a) { return '<span class="fa-av" style="left:' + a[0] + '%;top:' + a[1] + '%">' + a[2] + '</span>'; }).join('') +
+      '<span class="fa-score"><b>8.6</b><small>4 FRIENDS</small></span></div>';
+  }
+
   function viewSignIn() {
     var up = ui.mode === 'signup', reset = ui.mode === 'reset';
-    var form;
+    var form, title, sub;
     if (ui.recovery) {
-      form = '<form id="newPassForm" class="stack" style="margin-top:12px"><h2>Choose a new password</h2><label for="newPass" class="lbl-t">New password</label><input id="newPass" class="field" type="password" autocomplete="new-password" minlength="8" required><span class="small muted">At least 8 characters, with a capital letter, a lowercase letter, a number and a symbol.</span><button class="btn primary" type="submit"' + (ui.busy ? ' disabled' : '') + '>Save password</button></form>';
+      title = 'Choose a new password'; sub = 'You followed a reset link. Pick a new password to finish.';
+      form = '<form id="newPassForm" class="stack">' + pwField('newPass', 'new-password', 'New password') + PW_RULE +
+        '<button class="btn primary" type="submit"' + (ui.busy ? ' disabled' : '') + '>Save password</button></form>';
     } else if (reset) {
-      form = '<form id="resetForm" class="stack" style="margin-top:12px"><label for="emailIn" class="lbl-t">Your email</label><input id="emailIn" class="field" type="email" autocomplete="email" inputmode="email" required value="' + esc(ui.email) + '">' +
-        '<button class="btn primary" type="submit"' + (ui.busy ? ' disabled' : '') + '>Email me a reset link</button><span class="small muted">Open the link in Safari or Chrome to choose a new password.</span>' +
-        '<button class="btn soft" type="button" data-mode="signin">Back to sign in</button></form>';
+      title = 'Reset your password'; sub = 'We\'ll email you a link. Open it on this phone to choose a new password.';
+      form = '<form id="resetForm" class="stack"><label for="emailIn" class="lbl-t">Your email</label><input id="emailIn" class="field" type="email" autocomplete="email" inputmode="email" required value="' + esc(ui.email) + '">' +
+        '<button class="btn primary" type="submit"' + (ui.busy ? ' disabled' : '') + '>Email me a reset link</button>' +
+        '<button class="btn soft" type="button" data-mode="signin">Back to log in</button></form>';
     } else {
-      form = '<div class="segwide" role="group" aria-label="Sign in or create account" style="margin-top:12px"><button type="button" data-mode="signin" aria-pressed="' + !up + '">Sign in</button><button type="button" data-mode="signup" aria-pressed="' + up + '">Create account</button></div>' +
-        '<form id="authForm" class="stack"><label for="emailIn" class="lbl-t">Email</label><input id="emailIn" class="field" type="email" autocomplete="email" inputmode="email" required value="' + esc(ui.email) + '" placeholder="you@example.com">' +
-        '<label for="passIn" class="lbl-t">Password</label><input id="passIn" class="field" type="password" autocomplete="' + (up ? 'new-password' : 'current-password') + '" minlength="8" required>' + (up ? '<span class="small muted">At least 8 characters, with a capital letter, a lowercase letter, a number and a symbol, e.g. Travel24!</span>' : '') +
-        '<button class="btn primary" type="submit"' + (ui.busy ? ' disabled' : '') + '>' + (ui.busy ? 'Please wait…' : up ? 'Create account' : 'Sign in') + '</button>' +
-        (up ? '' : '<button class="btn soft" type="button" data-mode="reset">Forgotten your password?</button>') + '</form>';
+      title = up ? 'Create your account' : 'Welcome back';
+      sub = up ? 'Join friends who rate restaurants, hotels, fuel, EV chargers and more, wherever you travel.' : 'Log in to see what your friends recommend near you.';
+      form = '<form id="authForm" class="stack"><label for="emailIn" class="lbl-t">Email</label><input id="emailIn" class="field" type="email" autocomplete="email" inputmode="email" required value="' + esc(ui.email) + '" placeholder="you@example.com">' +
+        pwField('passIn', up ? 'new-password' : 'current-password', 'Password') + (up ? PW_RULE : '') +
+        (ui.failed && !up ? '<div class="alert" role="alert"><b>That email and password don\'t match.</b><span>Check for typos, or reset your password.</span><button class="btn soft" type="button" data-mode="reset">Reset my password</button></div>' : '') +
+        '<button class="btn primary" type="submit"' + (ui.busy ? ' disabled' : '') + '>' + (ui.busy ? 'Please wait…' : up ? 'Create account' : 'Log in') + '</button>' +
+        (up ? '<button class="btn soft" type="button" data-mode="signin">I already have an account</button>' : '<button class="linkbtn" type="button" data-mode="reset">Forgotten your password?</button><button class="btn soft" type="button" data-mode="signup">New here? Create an account</button>') + '</form>';
     }
-    return '<div class="wrap stack" style="padding-block: 40px 24px; min-height: 86vh">' + logo() +
-      '<div style="flex:1"></div>' +
-      '<h1 style="font-size:38px">Places, rated by people you trust.</h1>' +
-      '<p class="muted" style="margin:0;font-size:16px">Restaurants, hotels, supermarkets, fuel and EV chargers, wherever you travel. Only your friends\' ratings, so you know what a score really means.</p>' +
-      form + '</div>';
+    return '<div class="authpage">' +
+      '<div class="authhero"><div class="wrap"><div class="topbar">' + (ui.recovery ? '<span></span>' : '<button class="round onnavy" data-act="splash" aria-label="Back">' + svg(P.back) + '</button>') + '<span class="logo light"><svg viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="9" fill="#0B1A36"/><path d="M9.5 16.5l4.5 4.5 8.5-10" fill="none" stroke="#D4A017" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg>Vouch</span><span style="width:44px"></span></div>' + friendsArt() + '</div></div>' +
+      '<div class="wrap stack authbody"><h1>' + title + '</h1><p class="muted" style="margin:0">' + sub + '</p>' + form + '</div></div>';
   }
 
   function viewOnboard() {
@@ -228,9 +267,10 @@
     var emptyMsg = !S.places.length ? 'No places yet. Tap Rate to add the first one, or invite friends from the Friends tab.'
       : 'Nothing matches these filters here. Turn a category back on, widen to 2nd or 3rd degree, or move the map.';
     return '<div class="mapbox"><div id="map" aria-label="Map"></div>' +
-      '<div class="map-top wrap"><div class="chips" role="group" aria-label="Categories">' + chips + '</div>' +
-      '<div class="row"><div class="seg" role="group" aria-label="Degrees of separation">' + segs + '</div><span style="flex:1"></span>' +
-      '<button class="fab" data-act="near" aria-label="Near me">' + svg(P.near) + '</button></div></div></div>' +
+      '<div class="map-top wrap"><div class="row"><button class="searchbar" data-act="search">' + svg(P.search, '', 18) + '<span>Search places</span></button>' +
+      '<button class="fab" data-act="near" aria-label="Near me">' + svg(P.near) + '</button></div>' +
+      '<div class="chips" role="group" aria-label="Categories">' + chips + '</div>' +
+      '<div class="row"><div class="seg" role="group" aria-label="Degrees of separation">' + segs + '</div></div></div></div>' +
       '<div class="sheet wrap"><div class="handle"></div>' +
       '<div class="row between" style="align-items:baseline"><h2>Near you</h2><span class="small muted">' + vis.length + (vis.length === 1 ? ' place' : ' places') + '</span></div>' +
       '<div class="filters" style="padding-block:10px">' + groupSel +
@@ -289,7 +329,7 @@
       '<div class="section"><span class="eyebrow">' + (p.independent ? 'Independent · ' : '') + esc(CATNAME[p.category]) + '</span><h1>' + esc(p.name) + '</h1>' + (p.address ? '<span class="muted">' + esc(p.address) + dist + '</span>' : '') + favs + '</div>' +
       '<div class="segwide" role="group" aria-label="Whose ratings">' + degSeg + '</div>' +
       '<div class="section"><div class="card"><div class="row" style="gap:16px">' + (rs.length ? '<div class="big' + (st.top ? ' top' : '') + '">' + st.score.toFixed(1) + '</div>' : '<div class="big">–</div>') +
-      '<div class="stack" style="gap:4px"><span style="font-weight:600;font-size:17px">' + (ui.deg === 1 ? 'Friends\' score' : 'Wider circle score') + '</span><span class="small muted">' + (rs.length ? 'From ' + rs.length + (rs.length === 1 ? ' person' : ' people') + (friendsN ? ', ' + friendsN + (friendsN === 1 ? ' friend' : ' friends') : '') : 'No ratings at this level yet. Be the first, or widen to 2nd or 3rd degree.') + '</span></div></div>' + (rs.length ? bars : '') + '</div></div>' +
+      '<div class="stack" style="gap:4px"><span style="font-weight:600;font-size:17px">' + (ui.deg === 1 ? 'Friends\' score' : 'Wider circle score') + '</span><span class="small muted">' + (rs.length ? 'From ' + rs.length + (rs.length === 1 ? ' person' : ' people') + (friendsN ? ', ' + friendsN + (friendsN === 1 ? ' friend' : ' friends') : '') : 'No ratings at this level yet. Be the first, or widen to 2nd or 3rd degree.') + '</span></div></div>' + (rs.length ? bars + '<span class="small muted">Scores out of 10. 10 is best, 1 is worst.</span>' : '') + '</div></div>' +
       (rs.length ? '<div class="section"><h2>Rated by ' + rs.length + '</h2><div>' + raters + '</div></div>' : '') +
       (reviews ? '<div class="section"><h2>Reviews</h2><div>' + reviews + '</div></div>' : '') +
       '<div class="section"><label for="noteIn" class="row" style="gap:6px;font-weight:700">' + svg(P.lock, '', 16) + 'Your note <span class="small muted" style="font-weight:500">Only you can see this</span></label><textarea id="noteIn" class="note" placeholder="e.g. Ask for the window table">' + esc(S.notes[p.id] || '') + '</textarea></div>' +
@@ -325,7 +365,8 @@
       '<div class="row between"><label for="visitIn" class="lbl-t">Date of visit</label><input id="visitIn" type="date" class="field" style="width:auto" max="' + todayISO() + '" value="' + esc(r.visited_on) + '"></div>' +
       '<div class="row between"><span class="lbl-t">This trip was</span><span class="row" style="gap:8px"><button type="button" class="pill" data-trip="Work" aria-pressed="' + (r.trip === 'Work') + '">Work</button><button type="button" class="pill" data-trip="Leisure" aria-pressed="' + (r.trip === 'Leisure') + '">Leisure</button></span></div>' +
       '<div class="stack"><div class="row between"><span class="lbl-t">Your scores</span><span style="font-weight:600">Overall <span style="font-family:var(--display);font-size:20px">' + ((r.quality + r.value + r.location) / 3).toFixed(1) + '</span></span></div>' +
-      [['Quality', 'quality'], ['Value', 'value'], ['Location', 'location']].map(function (x) { return '<div class="stack" style="gap:6px"><div class="row between"><span style="font-weight:600">' + x[0] + '</span><b>' + r[x[1]] + '</b></div><div class="dots" role="group" aria-label="' + x[0] + ' score">' + dots(x[1]) + '</div></div>'; }).join('') + '</div>' +
+      '<p class="scalehint">Score each from <b>1 (worst)</b> to <b>10 (best)</b>.</p>' +
+      [['Quality', 'quality', 'How good was it?'], ['Value', 'value', 'Worth the money?'], ['Location', 'location', 'Easy to get to?']].map(function (x) { return '<div class="stack" style="gap:6px"><div class="row between"><span><b>' + x[0] + '</b> <span class="small muted">' + x[2] + '</span></span><b>' + r[x[1]] + '<span class="small muted">/10</span></b></div><div class="dots" role="group" aria-label="' + x[0] + ' score, 1 worst to 10 best">' + dots(x[1]) + '</div><div class="scaleends"><span>1 Worst</span><span>10 Best</span></div></div>'; }).join('') + '</div>' +
       '<div class="stack" style="gap:6px"><label for="revText" class="lbl-t">Your review</label><textarea id="revText" class="field" maxlength="2000" placeholder="What should your friends know? Tips like a better bakery down the road are gold.">' + esc(r.body) + '</textarea></div>' +
       '<div class="stack" style="gap:6px"><label for="photoIn" class="lbl-t">Photos (optional)</label><input id="photoIn" type="file" accept="image/*" multiple class="field"><span class="small muted">Menus, rooms, the view, what you ate. Shared with the same people as your review.</span></div>' +
       '<div class="stack" style="gap:6px"><span class="lbl-t">Who sees this review</span><div class="segwide"><button type="button" data-vis="circle" aria-pressed="' + (r.visibility === 'circle') + '">My circle</button><button type="button" data-vis="me" aria-pressed="' + (r.visibility === 'me') + '">Only me</button></div>' +
@@ -335,19 +376,26 @@
   }
 
   function viewAdd() {
-    var a = ui.add;
+    var a = ui.add, browse = a.mode === 'browse';
     var results = (a.results || []).map(function (r, i) {
-      return '<button class="item" data-pick="' + i + '"><span class="tile">' + svg(ICON[r.category]) + '</span><span class="t"><span class="n">' + esc(r.name) + '</span><span class="small muted">' + esc(r.address) + '</span></span></button>';
+      var onV = S.places.filter(function (p) { return p.osm_id === r.osm_id; })[0];
+      var st = onV ? stats(onV.id) : null;
+      return '<button class="item" data-pick="' + i + '"><span class="tile">' + svg(ICON[r.category]) + '</span><span class="t"><span class="n">' + esc(r.name) + '</span><span class="small muted">' + esc(r.address) + (ui.here ? ' · ' + fmtMiles(miles(ui.here, r)) : '') + '</span></span>' +
+        (st && st.rs.length ? badge(st.score) : '') + '</button>';
     }).join('');
     var f = a.form;
-    return '<div class="wrap"><div class="topbar"><button class="round" data-act="back" aria-label="Close">' + svg(P.close) + '</button><h2>Rate a place</h2><span style="width:44px"></span></div>' +
+    var existing = (a.existing || []).map(function (p) {
+      var st = stats(p.id);
+      return '<button class="item" ' + (browse ? 'data-place' : 'data-place-rate') + '="' + p.id + '"><span class="tile">' + svg(ICON[p.category]) + '</span><span class="t"><span class="n">' + esc(p.name) + '</span><span class="small muted">' + esc(p.address) + '</span></span>' + (st.rs.length ? badge(st.score) : '') + '</button>';
+    }).join('');
+    return '<div class="wrap"><div class="topbar"><button class="round" data-act="back" aria-label="Close">' + svg(P.close) + '</button><h2>' + (browse ? 'Search places' : 'Rate a place') + '</h2><span style="width:44px"></span></div>' +
       (!f ?
-        '<form id="searchForm" class="stack"><label for="searchIn" class="lbl-t">Find the place</label><div class="row"><input id="searchIn" class="field" type="search" enterkeyhint="search" placeholder="Name and town, e.g. Forno Bakery Leeds" value="' + esc(a.q) + '"><button class="round" type="submit" aria-label="Search">' + svg(P.search) + '</button></div>' +
-        '<span class="small muted">Searches near the map. Already on Vouch? It will appear in the list.</span></form>' +
+        '<form id="searchForm" class="stack"><label for="searchIn" class="lbl-t">' + (browse ? 'What are you looking for?' : 'Which place are you rating?') + '</label><div class="row"><input id="searchIn" class="field" type="search" enterkeyhint="search" placeholder="Name and town, e.g. Forno Bakery Leeds" value="' + esc(a.q) + '"><button class="round" type="submit" aria-label="Search">' + svg(P.search) + '</button></div>' +
+        '<span class="small muted">Searches near where your map is. Add a town to search somewhere else.</span></form>' +
         (a.searching ? '<p class="empty">Searching…</p>' : '') +
-        (a.existing && a.existing.length ? '<div class="section"><span class="eyebrow">Already on Vouch</span><div class="list">' + a.existing.map(function (p) { return '<button class="item" data-place-rate="' + p.id + '"><span class="tile">' + svg(ICON[p.category]) + '</span><span class="t"><span class="n">' + esc(p.name) + '</span><span class="small muted">' + esc(p.address) + '</span></span></button>'; }).join('') + '</div></div>' : '') +
-        (results ? '<div class="section"><span class="eyebrow">From the map</span><div class="list">' + results + '</div></div>' : (a.done && !a.searching ? '<p class="empty">No matches. Try adding the town, or drop a pin instead.</p>' : '')) +
-        '<div class="section"><button class="btn ghost" data-act="droppin">Can\'t find it? Add it where the map is centred</button><span class="small muted">Move the map to the spot first.</span></div>'
+        (existing ? '<div class="section"><span class="eyebrow">Already on Vouch</span><div class="list">' + existing + '</div></div>' : '') +
+        (results ? '<div class="section"><span class="eyebrow">' + (browse ? 'All places' : 'From the map') + '</span><div class="list">' + results + '</div></div>' : (a.done && !a.searching ? '<p class="empty">No matches. Try adding the town' + (browse ? '.' : ', or drop a pin instead.') + '</p>' : '')) +
+        (browse ? '' : '<div class="section"><button class="btn ghost" data-act="droppin">Can\'t find it? Add it where the map is centred</button><span class="small muted">Move the map to the spot first.</span></div>')
         :
         '<form id="placeForm" class="stack" style="padding-bottom:24px"><label for="pName" class="lbl-t">Name</label><input id="pName" class="field" required maxlength="120" value="' + esc(f.name) + '">' +
         '<label for="pCat" class="lbl-t">Category</label><select id="pCat" class="field">' + CATS.map(function (c) { return '<option value="' + c[0] + '"' + (c[0] === f.category ? ' selected' : '') + '>' + esc(CATNAME[c[0]]) + '</option>'; }).join('') + '</select>' +
@@ -355,6 +403,20 @@
         '<label class="check"><input id="pIndie" type="checkbox"' + (f.independent ? ' checked' : '') + '>Independent business (not a chain)</label>' +
         '<button class="btn primary" type="submit"' + (ui.busy ? ' disabled' : '') + '>Next: rate it</button><button class="btn soft" type="button" data-act="unpick">Back to search</button></form>') +
       '</div>';
+  }
+
+  function viewPreview() {
+    var r = ui.preview; if (!r) { ui.view = 'map'; return viewMap(); }
+    var lat = r.lat, lng = r.lng, q = encodeURIComponent(r.name);
+    return '<div class="wrap"><div class="topbar"><button class="round" data-act="back" aria-label="Back to results">' + svg(P.back) + '</button><span></span></div>' +
+      '<div class="section"><span class="eyebrow">' + (r.independent ? 'Independent · ' : '') + esc(CATNAME[r.category]) + '</span><h1>' + esc(r.name) + '</h1><span class="muted">' + esc(r.address) + (ui.here ? ' · ' + fmtMiles(miles(ui.here, r)) + ' away' : '') + '</span></div>' +
+      '<div class="card"><div class="row" style="gap:16px"><div class="big">–</div><div class="stack" style="gap:4px"><span style="font-weight:600;font-size:17px">Not on Vouch yet</span><span class="small muted">None of your friends have rated it. Been there? Be the first.</span></div></div></div>' +
+      '<div class="section"><h2>Getting there</h2><div class="grid2">' +
+      '<a class="btn ghost" href="https://maps.apple.com/?daddr=' + lat + ',' + lng + '&q=' + q + '" target="_blank" rel="noopener">Apple Maps</a>' +
+      '<a class="btn ghost" href="https://www.google.com/maps/dir/?api=1&destination=' + lat + ',' + lng + '" target="_blank" rel="noopener">Google Maps</a>' +
+      '<a class="btn ghost" href="https://waze.com/ul?ll=' + lat + ',' + lng + '&navigate=yes" target="_blank" rel="noopener">Waze</a>' +
+      '<a class="btn ghost" href="https://wa.me/?text=' + encodeURIComponent(r.name + ' (' + String(r.address || '').split(',')[0] + '). https://www.google.com/maps/search/?api=1&query=' + lat + ',' + lng) + '" target="_blank" rel="noopener">WhatsApp</a></div></div>' +
+      '<div class="section"><button class="btn primary" data-act="ratepreview">Rate this place</button></div></div>';
   }
 
   function viewFriends() {
@@ -419,18 +481,20 @@
       '<span class="small muted">Private notes and "Only me" reviews are never shared, whatever these say.</span></div>' +
       '<div class="section"><h2>Theme</h2><div class="themes">' + THEMES.map(function (t) { return '<button class="theme" data-themepick="' + t[0] + '" aria-pressed="' + (me.theme === t[0]) + '"><span style="font-weight:700">' + t[1] + '</span><span class="sw"><span style="background:' + t[2] + '"></span><span style="background:' + t[3] + '"></span><span style="background:' + t[4] + '"></span></span></button>'; }).join('') + '</div><span class="small muted">Navy &amp; Gold, Coastal and Forest follow your phone\'s dark mode.</span></div>' +
       '<div class="section"><h2>Install on your phone</h2><p class="small muted" style="margin:0">iPhone: open this page in Safari, tap Share, then Add to Home Screen. Android: open the browser menu and choose Add to Home screen.</p></div>' +
+      '<form id="changePassForm" class="section"><h2>Password</h2>' + pwField('chPass', 'new-password', 'New password') + pwField('chPass2', 'new-password', 'Type it again') + PW_RULE + '<button class="btn ghost" type="submit">Change password</button></form>' +
       '<div class="section"><button class="btn ghost" data-act="signout">Sign out</button></div>' +
       '</div>';
   }
 
   function renderTabs() {
     var t = $('tabs');
-    var show = ['map', 'place', 'friends', 'person', 'me', 'rate', 'add'].indexOf(ui.view) >= 0;
+    var show = ['map', 'place', 'friends', 'person', 'me', 'rate', 'add', 'preview'].indexOf(ui.view) >= 0;
+    var browsing = (ui.view === 'add' && ui.add && ui.add.mode === 'browse') || ui.view === 'preview';
     t.hidden = !show; if (!show) return;
     function cur(v) { return v.indexOf(ui.view) >= 0 ? ' aria-current="page"' : ''; }
     t.innerHTML = '<div class="in">' +
-      '<button class="tab" data-tab="map"' + cur(['map', 'place']) + '>' + svg(P.map) + 'Map</button>' +
-      '<button class="tab" data-tab="add"' + cur(['add', 'rate']) + '><span class="plus">' + svg(P.plus, '', 18) + '</span>Rate</button>' +
+      '<button class="tab" data-tab="map"' + (browsing ? ' aria-current="page"' : cur(['map', 'place'])) + '>' + svg(P.map) + 'Map</button>' +
+      '<button class="tab" data-tab="add"' + (browsing ? '' : cur(['add', 'rate'])) + '><span class="plus">' + svg(P.plus, '', 18) + '</span>Rate</button>' +
       '<button class="tab" data-tab="friends"' + cur(['friends', 'person']) + '>' + svg(P.friends) + 'Friends</button>' +
       '<button class="tab" data-tab="me"' + cur(['me']) + '>' + svg(P.me) + 'Me</button></div>';
   }
@@ -440,11 +504,13 @@
     if (map && ui.view !== 'map') { saveView(); map.remove(); map = null; markerLayer = null; meMarker = null; tileLayer = null; }
     var v = ui.view, h;
     if (v === 'setup') h = viewSetup();
+    else if (v === 'splash') h = viewSplash();
     else if (v === 'signin') h = viewSignIn();
     else if (v === 'onboard') h = viewOnboard();
     else if (v === 'place') h = viewPlace();
     else if (v === 'rate') h = viewRate();
     else if (v === 'add') h = viewAdd();
+    else if (v === 'preview') h = viewPreview();
     else if (v === 'friends') h = viewFriends();
     else if (v === 'person') h = viewPerson();
     else if (v === 'me') h = viewMe();
@@ -538,8 +604,8 @@
   async function searchPlaces(q) {
     var c = centre();
     var a = ui.add; a.searching = true; a.done = false; a.q = q;
-    var ql = q.toLowerCase();
-    a.existing = S.places.filter(function (p) { return p.name.toLowerCase().indexOf(ql.split(' ')[0]) >= 0; }).slice(0, 5);
+    var words = q.toLowerCase().split(/\s+/).filter(function (w) { return w.length > 1; });
+    a.existing = S.places.filter(function (p) { var hay = (p.name + ' ' + p.address).toLowerCase(); var hits = words.filter(function (w) { return hay.indexOf(w) >= 0; }).length; return hits > 0 && (hits === words.length || p.name.toLowerCase().indexOf(words[0]) >= 0); }).slice(0, 8);
     render();
     try {
       var url = 'https://nominatim.openstreetmap.org/search?format=jsonv2&addressdetails=1&extratags=1&limit=10&accept-language=en-GB&q=' + encodeURIComponent(q) +
@@ -574,6 +640,7 @@
       : { place_id: pid, quality: 7, value: 7, location: 7, trip: 'Leisure', body: '', visibility: 'circle', visited_on: todayISO(), existing: null };
     go('rate');
   }
+  function syncEmail() { var e = $('emailIn'); if (e) ui.email = e.value.trim(); }
   function syncRate() { var t = $('revText'); if (t && ui.rate) ui.rate.body = t.value; var d = $('visitIn'); if (d && ui.rate && d.value) ui.rate.visited_on = d.value; }
 
   async function resizeImage(file) {
@@ -650,13 +717,15 @@
     var el = e.target.closest('button, a, [data-place]');
     if (!el || el.tagName === 'A') return;
     var d = el.dataset;
-    if (d.mode) { ui.mode = d.mode; render(); return; }
+    if (d.mode) { syncEmail(); ui.mode = d.mode; ui.failed = false; render(); return; }
+    if (d.auth) { ui.mode = d.auth; ui.failed = false; ui.view = 'signin'; render(); window.scrollTo(0, 0); return; }
+    if (d.pw) { var inp = $(d.pw); if (inp) { var show = inp.type === 'password'; inp.type = show ? 'text' : 'password'; el.textContent = show ? 'Hide' : 'Show'; el.setAttribute('aria-pressed', String(show)); el.setAttribute('aria-label', show ? 'Hide password' : 'Show password'); } return; }
     if (d.place) { go('place', { place: d.place }); return; }
     if (d.placeRate) { startRate(d.placeRate); return; }
     if (d.person) { go('person', { person: d.person }); return; }
     if (d.cat) { ui.cats[d.cat] = !ui.cats[d.cat]; render(); return; }
     if (d.deg) { ui.deg = Number(d.deg); render(); return; }
-    if (d.tab) { if (d.tab === 'add') { ui.add = { q: '', results: [], form: null }; } ui.groupEdit = null; go(d.tab); return; }
+    if (d.tab) { if (d.tab === 'add') { ui.add = { q: '', results: [], form: null, mode: 'rate' }; } ui.groupEdit = null; go(d.tab); return; }
     if (d.score) { syncRate(); var s = d.score.split(':'); ui.rate[s[0]] = Number(s[1]); render(); return; }
     if (d.trip) { syncRate(); ui.rate.trip = d.trip; render(); return; }
     if (d.vis) { syncRate(); ui.rate.vis = d.vis; ui.rate.visibility = d.vis; render(); return; }
@@ -664,16 +733,18 @@
     if (d.pref) { var pr = d.pref.split(':'); var val = /degree/.test(pr[0]) ? Number(pr[1]) : pr[1]; var patch = {}; patch[pr[0]] = val; if (await updateProfile(patch, true)) { if (pr[0] === 'see_degree') ui.deg = val; await refresh(); toast('Saved'); } return; }
     if (d.themepick) { await updateProfile({ theme: d.themepick }, true); render(); return; }
     if (d.photo) { var v = $('viewer'); v.innerHTML = '<img src="' + esc(photoUrl(d.photo)) + '" alt="Photo"><button class="round" aria-label="Close photo">' + svg(P.close) + '</button>'; v.hidden = false; return; }
-    if (d.pick != null) { var r = ui.add.results[Number(d.pick)]; var ex = S.places.filter(function (p) { return p.osm_id === r.osm_id; })[0]; if (ex) { startRate(ex.id); return; } ui.add.form = r; render(); return; }
+    if (d.pick != null) { var r = ui.add.results[Number(d.pick)]; var ex = S.places.filter(function (p) { return p.osm_id === r.osm_id; })[0]; if (ui.add.mode === 'browse') { if (ex) go('place', { place: ex.id }); else go('preview', { preview: r }); return; } if (ex) { startRate(ex.id); return; } ui.add.form = r; render(); return; }
     if (d.groupEdit) { ui.groupEdit = d.groupEdit; render(); window.scrollTo(0, 0); return; }
     if (d.delgroup) { var dg = await sb.from('groups').delete().eq('id', d.delgroup); if (dg.error) return fail(dg.error); if (ui.group === d.delgroup) ui.group = ''; ui.groupEdit = null; await refresh(); return; }
     if (d.deltip) { var dt = await sb.from('tips').delete().eq('id', d.deltip); if (dt.error) return fail(dt.error); await refresh(); return; }
     var a = d.act; if (!a) return;
-    if (false) {}
+    if (a === 'splash') { ui.view = 'splash'; render(); }
     else if (a === 'work' || a === 'leisure') { ui[a] = !ui[a]; if (!ui.work && !ui.leisure) ui[a === 'work' ? 'leisure' : 'work'] = true; render(); }
     else if (a === 'indie') { ui.indie = !ui.indie; render(); }
     else if (a === 'near') { locate(function () { if (map) { showMe(); map.setView([ui.here.lat, ui.here.lng], Math.max(map.getZoom(), 14)); } render(); }); }
-    else if (a === 'back') { var to = ui.view === 'rate' ? 'place' : ui.view === 'person' && ui.prev === 'place' ? 'place' : ui.view === 'person' && ui.prev === 'friends' ? 'friends' : 'map'; if (to === 'place' && !place(ui.place)) to = 'map'; go(to); }
+    else if (a === 'search') { ui.add = { q: '', results: [], form: null, mode: 'browse' }; go('add'); var si = $('searchIn'); if (si) si.focus(); }
+    else if (a === 'ratepreview') { ui.add.mode = 'rate'; ui.add.form = ui.preview; go('add'); }
+    else if (a === 'back') { var to = ui.view === 'preview' ? 'add' : ui.view === 'rate' ? 'place' : ui.view === 'person' && ui.prev === 'place' ? 'place' : ui.view === 'person' && ui.prev === 'friends' ? 'friends' : 'map'; if (to === 'place' && !place(ui.place)) to = 'map'; go(to); }
     else if (a === 'rate') { startRate(ui.place); }
     else if (a === 'share') { sharePlace(place(ui.place)); }
     else if (a === 'invite') { shareInvite(); }
@@ -731,7 +802,11 @@
         ? await sb.auth.signUp({ email: ui.email, password: pw, options: { emailRedirectTo: location.origin + location.pathname } })
         : await sb.auth.signInWithPassword({ email: ui.email, password: pw });
       ui.busy = false;
-      if (r.error) { render(); return fail(r.error, ui.mode === 'signup' ? 'Could not create the account' : 'Could not sign in'); }
+      if (r.error) {
+        if (ui.mode !== 'signup' && /invalid login|credentials/i.test(r.error.message)) { ui.failed = true; render(); var pi = $('passIn'); if (pi) pi.focus(); return; }
+        render(); return fail(r.error, ui.mode === 'signup' ? 'Could not create the account' : 'Could not log in');
+      }
+      ui.failed = false;
       if (ui.mode === 'signup' && !r.data.session) { render(); toast('Check your email to confirm your account, then sign in.'); }
     }
     else if (id === 'resetForm') {
@@ -753,6 +828,13 @@
       var name = $('obName').value.trim(); if (!name) return;
       var st = (document.querySelector('input[name="obStyle"]:checked') || {}).value || '';
       if (await updateProfile({ name: name, style: st }, true)) go('friends');
+    }
+    else if (id === 'changePassForm') {
+      var p1 = $('chPass').value, p2 = $('chPass2').value;
+      if (p1 !== p2) return toast('The two passwords don\'t match');
+      var cp = await sb.auth.updateUser({ password: p1 });
+      if (cp.error) return fail(cp.error, 'Could not change the password');
+      $('chPass').value = ''; $('chPass2').value = ''; toast('Password changed');
     }
     else if (id === 'profileForm') {
       await updateProfile({ name: $('meName').value.trim(), home: $('meHome').value.trim(), bio: $('meBio').value.trim(), style: S.me.style || '' });
@@ -797,7 +879,7 @@
   async function onSession(session) {
     S.session = session;
     if (ui.recovery) { ui.view = 'signin'; render(); return; }
-    if (!session) { ui.view = 'signin'; ui.mode = ui.mode || 'signin'; ui.email = store('email') || ''; render(); return; }
+    if (!session) { ui.view = 'splash'; ui.failed = false; ui.email = store('email') || ''; render(); return; }
     try {
       await loadAll();
       ui.view = S.me.name ? 'map' : 'onboard';
