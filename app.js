@@ -177,7 +177,7 @@
     var up = ui.mode === 'signup', reset = ui.mode === 'reset';
     var form;
     if (ui.recovery) {
-      form = '<form id="newPassForm" class="stack" style="margin-top:12px"><h2>Choose a new password</h2><label for="newPass" class="lbl-t">New password</label><input id="newPass" class="field" type="password" autocomplete="new-password" minlength="8" required><button class="btn primary" type="submit"' + (ui.busy ? ' disabled' : '') + '>Save password</button></form>';
+      form = '<form id="newPassForm" class="stack" style="margin-top:12px"><h2>Choose a new password</h2><label for="newPass" class="lbl-t">New password</label><input id="newPass" class="field" type="password" autocomplete="new-password" minlength="8" required><span class="small muted">At least 8 characters, with a capital letter, a lowercase letter, a number and a symbol.</span><button class="btn primary" type="submit"' + (ui.busy ? ' disabled' : '') + '>Save password</button></form>';
     } else if (reset) {
       form = '<form id="resetForm" class="stack" style="margin-top:12px"><label for="emailIn" class="lbl-t">Your email</label><input id="emailIn" class="field" type="email" autocomplete="email" inputmode="email" required value="' + esc(ui.email) + '">' +
         '<button class="btn primary" type="submit"' + (ui.busy ? ' disabled' : '') + '>Email me a reset link</button><span class="small muted">Open the link in Safari or Chrome to choose a new password.</span>' +
@@ -185,7 +185,7 @@
     } else {
       form = '<div class="segwide" role="group" aria-label="Sign in or create account" style="margin-top:12px"><button type="button" data-mode="signin" aria-pressed="' + !up + '">Sign in</button><button type="button" data-mode="signup" aria-pressed="' + up + '">Create account</button></div>' +
         '<form id="authForm" class="stack"><label for="emailIn" class="lbl-t">Email</label><input id="emailIn" class="field" type="email" autocomplete="email" inputmode="email" required value="' + esc(ui.email) + '" placeholder="you@example.com">' +
-        '<label for="passIn" class="lbl-t">Password</label><input id="passIn" class="field" type="password" autocomplete="' + (up ? 'new-password' : 'current-password') + '" minlength="8" required placeholder="' + (up ? 'At least 8 characters' : '') + '">' +
+        '<label for="passIn" class="lbl-t">Password</label><input id="passIn" class="field" type="password" autocomplete="' + (up ? 'new-password' : 'current-password') + '" minlength="8" required>' + (up ? '<span class="small muted">At least 8 characters, with a capital letter, a lowercase letter, a number and a symbol, e.g. Travel24!</span>' : '') +
         '<button class="btn primary" type="submit"' + (ui.busy ? ' disabled' : '') + '>' + (ui.busy ? 'Please wait…' : up ? 'Create account' : 'Sign in') + '</button>' +
         (up ? '' : '<button class="btn soft" type="button" data-mode="reset">Forgotten your password?</button>') + '</form>';
     }
