@@ -177,7 +177,25 @@
     return '<label for="' + id + '" class="lbl-t">' + label + '</label><div class="pw"><input id="' + id + '" class="field" type="password" autocomplete="' + auto + '"' + (auto === 'new-password' ? ' minlength="8"' : '') + ' required>' +
       '<button type="button" class="pwtoggle" data-pw="' + id + '" aria-label="Show password" aria-pressed="false">Show</button></div>';
   }
-  var PW_RULE = '<span class="small muted">At least 8 characters, with a capital letter, a lowercase letter, a number and a symbol, e.g. Travel24!</span>';
+  var PW_RULE = '<span class="small muted">At least 8 characters, with a capital letter, a lowercase letter, a number and a symbol such as ! ? # $ & *. The £ sign doesn\'t count as a symbol.</span>';
+  // Mirrors the Supabase rule "lowercase, uppercase, digits and symbols". Its symbols are the standard keyboard ones.
+  function pwProblem(p) {
+    var miss = [];
+    if (!p || p.length < 8) miss.push('at least 8 characters');
+    if (!/[a-z]/.test(p)) miss.push('a lowercase letter');
+    if (!/[A-Z]/.test(p)) miss.push('a capital letter');
+    if (!/[0-9]/.test(p)) miss.push('a number');
+    if (!/[!@#$%^&*()_+\-=\[\]{};':"|<>?,.\/`~\\]/.test(p)) miss.push('a symbol such as ! ? # $ & * (the £ sign doesn\'t count)');
+    return miss.length ? 'Your password still needs ' + miss.join(', ').replace(/, ([^,]*)$/, ' and $1') + '.' : '';
+  }
+  function pwErrorText(err) {
+    var m = String((err && err.message) || '');
+    if (/different from the old|same_password|same password/i.test(m)) return 'Your new password must be different from your old one.';
+    if (/weak|should contain|at least|characters/i.test(m)) return 'That password doesn\'t meet the rules. ' + pwProblem($('newPass') ? $('newPass').value : '') + ' (' + m + ')';
+    if (/session|expired|jwt|not authenticated|missing/i.test(m)) return 'expired';
+    return m || 'Something went wrong. Please try again.';
+  }
+
 
   function splashArt() {
     // Stylised map: streets, a gold route and friends' rating pins.
@@ -214,11 +232,15 @@
     var form, title, sub;
     if (ui.recovery) {
       title = 'Choose a new password'; sub = 'You followed a reset link. Pick a new password to finish.';
-      form = '<form id="newPassForm" class="stack">' + pwField('newPass', 'new-password', 'New password') + PW_RULE +
-        '<button class="btn primary" type="submit"' + (ui.busy ? ' disabled' : '') + '>Save password</button></form>';
+      form = ui.passError === 'expired'
+        ? '<div class="alert" role="alert"><b>This reset link has expired or was already used.</b><span>Links work once and only for a short time. Request a new one and open it straight away.</span><button class="btn soft" type="button" data-act="newlink">Send me a new link</button></div>'
+        : '<form id="newPassForm" class="stack">' + pwField('newPass', 'new-password', 'New password') + pwField('newPass2', 'new-password', 'Type it again') + PW_RULE +
+          (ui.passError ? '<div class="alert" role="alert"><b>Password not saved.</b><span>' + esc(ui.passError) + '</span></div>' : '') +
+          '<button class="btn primary" type="submit"' + (ui.busy ? ' disabled' : '') + '>' + (ui.busy ? 'Saving…' : 'Save password') + '</button></form>';
     } else if (reset) {
-      title = 'Reset your password'; sub = 'We\'ll email you a link. Open it on this phone to choose a new password.';
-      form = '<form id="resetForm" class="stack"><label for="emailIn" class="lbl-t">Your email</label><input id="emailIn" class="field" type="email" autocomplete="email" inputmode="email" required value="' + esc(ui.email) + '">' +
+      title = 'Reset your password'; sub = 'We\'ll email you a link. Open it on this phone, in this browser, to choose a new password.';
+      form = (ui.linkError ? '<div class="alert" role="alert"><b>That reset link didn\'t work.</b><span>It has expired or was already used. Links work once and only for about an hour. Send a new one below and open it straight away.</span></div>' : '') +
+        '<form id="resetForm" class="stack"><label for="emailIn" class="lbl-t">Your email</label><input id="emailIn" class="field" type="email" autocomplete="email" inputmode="email" required value="' + esc(ui.email) + '">' +
         '<button class="btn primary" type="submit"' + (ui.busy ? ' disabled' : '') + '>Email me a reset link</button>' +
         '<button class="btn soft" type="button" data-mode="signin">Back to log in</button></form>';
     } else {
@@ -738,7 +760,8 @@
     if (d.delgroup) { var dg = await sb.from('groups').delete().eq('id', d.delgroup); if (dg.error) return fail(dg.error); if (ui.group === d.delgroup) ui.group = ''; ui.groupEdit = null; await refresh(); return; }
     if (d.deltip) { var dt = await sb.from('tips').delete().eq('id', d.deltip); if (dt.error) return fail(dt.error); await refresh(); return; }
     var a = d.act; if (!a) return;
-    if (a === 'splash') { ui.view = 'splash'; render(); }
+    if (a === 'splash') { ui.view = 'splash'; ui.linkError = false; render(); }
+    else if (a === 'newlink') { ui.keepAuth = true; ui.recovery = false; ui.passError = ''; ui.mode = 'reset'; ui.view = 'signin'; try { await sb.auth.signOut(); } catch (e3) {} render(); }
     else if (a === 'work' || a === 'leisure') { ui[a] = !ui[a]; if (!ui.work && !ui.leisure) ui[a === 'work' ? 'leisure' : 'work'] = true; render(); }
     else if (a === 'indie') { ui.indie = !ui.indie; render(); }
     else if (a === 'near') { locate(function () { if (map) { showMe(); map.setView([ui.here.lat, ui.here.lng], Math.max(map.getZoom(), 14)); } render(); }); }
@@ -797,6 +820,7 @@
     if (id === 'authForm') {
       ui.email = $('emailIn').value.trim(); var pw = $('passIn').value;
       if (!ui.email || !pw) return;
+      if (ui.mode === 'signup') { var sprob = pwProblem(pw); if (sprob) return toast(sprob); }
       store('email', ui.email); ui.busy = true; render();
       var r = ui.mode === 'signup'
         ? await sb.auth.signUp({ email: ui.email, password: pw, options: { emailRedirectTo: location.origin + location.pathname } })
@@ -818,11 +842,20 @@
       toast('If that email has an account, a reset link is on its way.');
     }
     else if (id === 'newPassForm') {
-      ui.busy = true; render();
-      var np = await sb.auth.updateUser({ password: $('newPass').value });
+      var n1 = $('newPass').value, n2 = $('newPass2').value;
+      if (n1 !== n2) { ui.passError = 'The two passwords don\'t match. Type the same password in both boxes.'; render(); return; }
+      var prob = pwProblem(n1);
+      if (prob) { ui.passError = prob; render(); return; }
+      ui.passError = ''; ui.busy = true; render();
+      var np = await sb.auth.updateUser({ password: n1 });
       ui.busy = false;
-      if (np.error) { render(); return fail(np.error, 'Could not save the password'); }
-      ui.recovery = false; toast('Password saved'); onSession((await sb.auth.getSession()).data.session);
+      if (np.error) { ui.passError = pwErrorText(np.error); render(); return; }
+      ui.recovery = false; ui.passError = ''; ui.linkError = false;
+      try { history.replaceState(null, '', location.pathname); } catch (e2) {}
+      var sess = (await sb.auth.getSession()).data.session;
+      if (sess) toast('Password saved. You\'re logged in.');
+      else { ui.mode = 'signin'; ui.keepAuth = true; toast('Password saved. Log in with your new password.'); }
+      onSession(sess);
     }
     else if (id === 'onboardForm') {
       var name = $('obName').value.trim(); if (!name) return;
@@ -832,8 +865,9 @@
     else if (id === 'changePassForm') {
       var p1 = $('chPass').value, p2 = $('chPass2').value;
       if (p1 !== p2) return toast('The two passwords don\'t match');
+      var cprob = pwProblem(p1); if (cprob) return toast(cprob);
       var cp = await sb.auth.updateUser({ password: p1 });
-      if (cp.error) return fail(cp.error, 'Could not change the password');
+      if (cp.error) { var ct = pwErrorText(cp.error); return toast(ct === 'expired' ? 'Please log out and back in, then try again.' : ct); }
       $('chPass').value = ''; $('chPass2').value = ''; toast('Password changed');
     }
     else if (id === 'profileForm') {
@@ -879,7 +913,7 @@
   async function onSession(session) {
     S.session = session;
     if (ui.recovery) { ui.view = 'signin'; render(); return; }
-    if (!session) { ui.view = 'splash'; ui.failed = false; ui.email = store('email') || ''; render(); return; }
+    if (!session) { ui.view = (ui.linkError || ui.keepAuth) ? 'signin' : 'splash'; ui.keepAuth = false; ui.failed = false; ui.email = store('email') || ''; render(); return; }
     try {
       await loadAll();
       ui.view = S.me.name ? 'map' : 'onboard';
@@ -889,6 +923,12 @@
   function start() {
     applyTheme();
     if (!CONFIGURED || !window.supabase || !window.L) { ui.view = 'setup'; render(); return; }
+    var hp = new URLSearchParams((location.hash || '').replace(/^#/, '')), qp = new URLSearchParams(location.search || '');
+    if (hp.get('type') === 'recovery' || qp.get('type') === 'recovery') ui.recovery = true;
+    if (hp.get('error_code') || hp.get('error') || qp.get('error_code')) {
+      ui.recovery = false; ui.linkError = true; ui.mode = 'reset'; ui.view = 'signin';
+      try { history.replaceState(null, '', location.pathname); } catch (e) {}
+    }
     sb = window.supabase.createClient(CFG.supabaseUrl, CFG.supabaseKey, { auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true } });
     var started = false;
     sb.auth.onAuthStateChange(function (event, session) {
