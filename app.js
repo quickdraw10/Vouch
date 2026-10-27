@@ -43,7 +43,7 @@
   var S = { session: null, me: null, friends: [], places: [], reviews: [], tips: [], best: [], photos: [], notes: {}, groups: [], members: [], people: {} };
   var ui = {
     view: 'loading', place: null, person: null, cats: {}, deg: 1, indie: false, work: true, leisure: true, group: '',
-    rate: null, add: null, email: '', sent: false, busy: false, confirm: null, here: null
+    rate: null, add: null, email: '', mode: 'signin', recovery: false, busy: false, confirm: null, here: null
   };
   CATS.forEach(function (c) { ui.cats[c[0]] = true; });
   var map = null, markerLayer = null, meMarker = null, tileLayer = null;
@@ -174,15 +174,26 @@
   function logo() { return '<div class="logo"><svg viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="9" fill="var(--primary)"/><path d="M9.5 16.5l4.5 4.5 8.5-10" fill="none" stroke="var(--trim)" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg>Vouch</div>'; }
 
   function viewSignIn() {
+    var up = ui.mode === 'signup', reset = ui.mode === 'reset';
+    var form;
+    if (ui.recovery) {
+      form = '<form id="newPassForm" class="stack" style="margin-top:12px"><h2>Choose a new password</h2><label for="newPass" class="lbl-t">New password</label><input id="newPass" class="field" type="password" autocomplete="new-password" minlength="8" required><button class="btn primary" type="submit"' + (ui.busy ? ' disabled' : '') + '>Save password</button></form>';
+    } else if (reset) {
+      form = '<form id="resetForm" class="stack" style="margin-top:12px"><label for="emailIn" class="lbl-t">Your email</label><input id="emailIn" class="field" type="email" autocomplete="email" inputmode="email" required value="' + esc(ui.email) + '">' +
+        '<button class="btn primary" type="submit"' + (ui.busy ? ' disabled' : '') + '>Email me a reset link</button><span class="small muted">Open the link in Safari or Chrome to choose a new password.</span>' +
+        '<button class="btn soft" type="button" data-mode="signin">Back to sign in</button></form>';
+    } else {
+      form = '<div class="segwide" role="group" aria-label="Sign in or create account" style="margin-top:12px"><button type="button" data-mode="signin" aria-pressed="' + !up + '">Sign in</button><button type="button" data-mode="signup" aria-pressed="' + up + '">Create account</button></div>' +
+        '<form id="authForm" class="stack"><label for="emailIn" class="lbl-t">Email</label><input id="emailIn" class="field" type="email" autocomplete="email" inputmode="email" required value="' + esc(ui.email) + '" placeholder="you@example.com">' +
+        '<label for="passIn" class="lbl-t">Password</label><input id="passIn" class="field" type="password" autocomplete="' + (up ? 'new-password' : 'current-password') + '" minlength="8" required placeholder="' + (up ? 'At least 8 characters' : '') + '">' +
+        '<button class="btn primary" type="submit"' + (ui.busy ? ' disabled' : '') + '>' + (ui.busy ? 'Please wait…' : up ? 'Create account' : 'Sign in') + '</button>' +
+        (up ? '' : '<button class="btn soft" type="button" data-mode="reset">Forgotten your password?</button>') + '</form>';
+    }
     return '<div class="wrap stack" style="padding-block: 40px 24px; min-height: 86vh">' + logo() +
       '<div style="flex:1"></div>' +
       '<h1 style="font-size:38px">Places, rated by people you trust.</h1>' +
       '<p class="muted" style="margin:0;font-size:16px">Restaurants, hotels, supermarkets, fuel and EV chargers, wherever you travel. Only your friends\' ratings, so you know what a score really means.</p>' +
-      (!ui.sent ?
-        '<form id="emailForm" class="stack" style="margin-top:12px"><label for="emailIn" class="lbl-t">Your email</label><input id="emailIn" class="field" type="email" autocomplete="email" inputmode="email" required value="' + esc(ui.email) + '" placeholder="you@example.com"><button class="btn primary" type="submit"' + (ui.busy ? ' disabled' : '') + '>' + (ui.busy ? 'Sending…' : 'Email me a sign-in code') + '</button><span class="small muted">No password needed. New here? This creates your account.</span></form>'
-        :
-        '<form id="codeForm" class="stack" style="margin-top:12px"><p style="margin:0">We emailed <b>' + esc(ui.email) + '</b>. Enter the code from the email, or tap the link in it.</p><label for="codeIn" class="lbl-t">Sign-in code</label><input id="codeIn" class="field code" inputmode="numeric" autocomplete="one-time-code" maxlength="10" required><button class="btn primary" type="submit"' + (ui.busy ? ' disabled' : '') + '>' + (ui.busy ? 'Checking…' : 'Sign in') + '</button><button class="btn soft" type="button" data-act="restart">Use a different email</button></form>') +
-      '</div>';
+      form + '</div>';
   }
 
   function viewOnboard() {
@@ -639,6 +650,7 @@
     var el = e.target.closest('button, a, [data-place]');
     if (!el || el.tagName === 'A') return;
     var d = el.dataset;
+    if (d.mode) { ui.mode = d.mode; render(); return; }
     if (d.place) { go('place', { place: d.place }); return; }
     if (d.placeRate) { startRate(d.placeRate); return; }
     if (d.person) { go('person', { person: d.person }); return; }
@@ -657,7 +669,7 @@
     if (d.delgroup) { var dg = await sb.from('groups').delete().eq('id', d.delgroup); if (dg.error) return fail(dg.error); if (ui.group === d.delgroup) ui.group = ''; ui.groupEdit = null; await refresh(); return; }
     if (d.deltip) { var dt = await sb.from('tips').delete().eq('id', d.deltip); if (dt.error) return fail(dt.error); await refresh(); return; }
     var a = d.act; if (!a) return;
-    if (a === 'restart') { ui.sent = false; render(); }
+    if (false) {}
     else if (a === 'work' || a === 'leisure') { ui[a] = !ui[a]; if (!ui.work && !ui.leisure) ui[a === 'work' ? 'leisure' : 'work'] = true; render(); }
     else if (a === 'indie') { ui.indie = !ui.indie; render(); }
     else if (a === 'near') { locate(function () { if (map) { showMe(); map.setView([ui.here.lat, ui.here.lng], Math.max(map.getZoom(), 14)); } render(); }); }
@@ -711,20 +723,31 @@
   document.addEventListener('submit', async function (e) {
     e.preventDefault();
     var id = e.target.id;
-    if (id === 'emailForm') {
+    if (id === 'authForm') {
+      ui.email = $('emailIn').value.trim(); var pw = $('passIn').value;
+      if (!ui.email || !pw) return;
+      store('email', ui.email); ui.busy = true; render();
+      var r = ui.mode === 'signup'
+        ? await sb.auth.signUp({ email: ui.email, password: pw, options: { emailRedirectTo: location.origin + location.pathname } })
+        : await sb.auth.signInWithPassword({ email: ui.email, password: pw });
+      ui.busy = false;
+      if (r.error) { render(); return fail(r.error, ui.mode === 'signup' ? 'Could not create the account' : 'Could not sign in'); }
+      if (ui.mode === 'signup' && !r.data.session) { render(); toast('Check your email to confirm your account, then sign in.'); }
+    }
+    else if (id === 'resetForm') {
       ui.email = $('emailIn').value.trim(); if (!ui.email) return;
       ui.busy = true; render();
-      var r = await sb.auth.signInWithOtp({ email: ui.email, options: { emailRedirectTo: location.origin + location.pathname, shouldCreateUser: true } });
-      ui.busy = false;
-      if (r.error) { render(); return fail(r.error, 'Could not send the email'); }
-      ui.sent = true; store('email', ui.email); render();
+      var rr = await sb.auth.resetPasswordForEmail(ui.email, { redirectTo: location.origin + location.pathname });
+      ui.busy = false; ui.mode = 'signin'; render();
+      if (rr.error) return fail(rr.error, 'Could not send the email');
+      toast('If that email has an account, a reset link is on its way.');
     }
-    else if (id === 'codeForm') {
-      var code = $('codeIn').value.replace(/\s/g, ''); if (!code) return;
+    else if (id === 'newPassForm') {
       ui.busy = true; render();
-      var v = await sb.auth.verifyOtp({ email: ui.email, token: code, type: 'email' });
+      var np = await sb.auth.updateUser({ password: $('newPass').value });
       ui.busy = false;
-      if (v.error) { render(); return fail(v.error, 'That code did not work'); }
+      if (np.error) { render(); return fail(np.error, 'Could not save the password'); }
+      ui.recovery = false; toast('Password saved'); onSession((await sb.auth.getSession()).data.session);
     }
     else if (id === 'onboardForm') {
       var name = $('obName').value.trim(); if (!name) return;
@@ -773,7 +796,8 @@
   // ---------- Start ----------
   async function onSession(session) {
     S.session = session;
-    if (!session) { ui.view = 'signin'; ui.sent = false; ui.email = store('email') || ''; render(); return; }
+    if (ui.recovery) { ui.view = 'signin'; render(); return; }
+    if (!session) { ui.view = 'signin'; ui.mode = ui.mode || 'signin'; ui.email = store('email') || ''; render(); return; }
     try {
       await loadAll();
       ui.view = S.me.name ? 'map' : 'onboard';
@@ -787,6 +811,7 @@
     var started = false;
     sb.auth.onAuthStateChange(function (event, session) {
       if (event === 'TOKEN_REFRESHED' || event === 'USER_UPDATED') { S.session = session; return; }
+      if (event === 'PASSWORD_RECOVERY') { S.session = session; ui.recovery = true; ui.view = 'signin'; started = true; render(); return; }
       if (event === 'INITIAL_SESSION' || event === 'SIGNED_IN' || event === 'SIGNED_OUT') {
         if (event === 'SIGNED_IN' && started && S.me) return;
         started = true;

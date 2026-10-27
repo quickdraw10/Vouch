@@ -17,7 +17,7 @@ Hosting is GitHub Pages. The database, sign-in and photo storage are Supabase. M
 
 1. SQL Editor: run `supabase/setup.sql`.
 2. Authentication › URL Configuration: set Site URL to `https://quickdraw10.github.io/Vouch/` and add the same address under Redirect URLs.
-3. Authentication › Email Templates › Magic Link: add `Your sign-in code: {{ .Token }}` to the message, so people can sign in by typing a code. This matters for the home-screen app on iPhone, which can't receive sign-in links.
+3. Authentication › Sign In / Providers › Email: turn off "Confirm email" for testing, so new accounts work straight away without waiting for an email.
 
 ## Never commit
 
