@@ -3,5 +3,5 @@
 // Never put the secret / service_role key in this file.
 window.VOUCH_CONFIG = {
   supabaseUrl: 'https://vqdampngaqfxbdvkserq.supabase.co',
-  supabaseKey: 'YOUR_SUPABASE_PUBLISHABLE_KEY'
+  supabaseKey: 'sb_publishable_1a8UzppchAC53YrrlnUb0A_-RsKln24'
 };
