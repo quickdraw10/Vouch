@@ -93,9 +93,9 @@
     var t = (S.me && S.me.theme) || store('theme') || 'navy-gold';
     if (t === 'navy-gold') document.documentElement.removeAttribute('data-vtheme'); else document.documentElement.setAttribute('data-vtheme', t);
     var meta = document.querySelector('meta[name="theme-color"]'); if (meta) meta.setAttribute('content', effectiveDark() ? '#0B0D12' : '#FFFFFF');
-    if (tileLayer && map) { var want = tileUrl(); if (tileLayer._url !== want) tileLayer.setUrl(want); }
+    document.documentElement.classList.toggle('map-dark', effectiveDark());
   }
-  function tileUrl() { return 'https://{s}.basemaps.cartocdn.com/' + (effectiveDark() ? 'dark_all' : 'rastertiles/voyager') + '/{z}/{x}/{y}{r}.png'; }
+  function tileUrl() { return 'https://tile.openstreetmap.org/{z}/{x}/{y}.png'; }
 
   // ---------- Visibility maths ----------
   function inScope(r) {
@@ -482,8 +482,8 @@
     }
     map = L.map('map', { zoomControl: false, attributionControl: true }).setView(start, zoom);
     tileLayer = L.tileLayer(tileUrl(), {
-      maxZoom: 19, subdomains: 'abcd',
-      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions" target="_blank" rel="noopener">CARTO</a>'
+      maxZoom: 19,
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> contributors'
     }).addTo(map);
     markerLayer = L.layerGroup().addTo(map);
     drawMarkers();
