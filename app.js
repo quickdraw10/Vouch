@@ -177,15 +177,13 @@
     return '<label for="' + id + '" class="lbl-t">' + label + '</label><div class="pw"><input id="' + id + '" class="field" type="password" autocomplete="' + auto + '"' + (auto === 'new-password' ? ' minlength="8"' : '') + ' required>' +
       '<button type="button" class="pwtoggle" data-pw="' + id + '" aria-label="Show password" aria-pressed="false">Show</button></div>';
   }
-  var PW_RULE = '<span class="small muted">At least 8 characters, with a capital letter, a lowercase letter, a number and a symbol such as ! ? # $ & *. The £ sign doesn\'t count as a symbol.</span>';
-  // Mirrors the Supabase rule "lowercase, uppercase, digits and symbols". Its symbols are the standard keyboard ones.
+  var PW_RULE = '<span class="small muted">At least 8 characters, with letters and at least one number, e.g. travel24</span>';
+  // Mirrors the Supabase rule "Letters and digits" with a minimum length of 8.
   function pwProblem(p) {
     var miss = [];
     if (!p || p.length < 8) miss.push('at least 8 characters');
-    if (!/[a-z]/.test(p)) miss.push('a lowercase letter');
-    if (!/[A-Z]/.test(p)) miss.push('a capital letter');
-    if (!/[0-9]/.test(p)) miss.push('a number');
-    if (!/[!@#$%^&*()_+\-=\[\]{};':"|<>?,.\/`~\\]/.test(p)) miss.push('a symbol such as ! ? # $ & * (the £ sign doesn\'t count)');
+    if (!/[A-Za-z]/.test(p || '')) miss.push('a letter');
+    if (!/[0-9]/.test(p || '')) miss.push('a number');
     return miss.length ? 'Your password still needs ' + miss.join(', ').replace(/, ([^,]*)$/, ' and $1') + '.' : '';
   }
   function pwErrorText(err) {
