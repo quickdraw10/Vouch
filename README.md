@@ -11,6 +11,7 @@ Live at: https://quickdraw10.github.io/Vouch/
 - `config.js`: the Supabase project URL and publishable key (safe to be public)
 - `supabase/setup.sql`: the database tables and privacy rules. Run it once in Supabase › SQL Editor.
 - `supabase/002_public_follow_saves.sql`: update 2 (public reviews, following, invite links, saved places, edit times). Run it once, after setup.sql.
+- `supabase/003_categories_names_tips.sql`: update 3 (sub-categories, first/last/nickname, general tips). Run it once, after update 2.
 
 Hosting is GitHub Pages. The database, sign-in and photo storage are Supabase. Maps are OpenStreetMap tiles, and place search uses OpenStreetMap Nominatim.
 
