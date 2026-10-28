@@ -114,7 +114,7 @@
 
   // ---------- State ----------
   var sb = null;
-  var S = { session: null, me: null, friends: [], following: [], followers: [], saves: [], needsUpdate: false, places: [], reviews: [], tips: [], best: [], photos: [], notes: {}, groups: [], members: [], people: {}, links: [], needsLinks: false, needsCats: false, needsV6: false, silenced: [] };
+  var S = { session: null, me: null, friends: [], following: [], followers: [], saves: [], needsUpdate: false, places: [], reviews: [], tips: [], best: [], photos: [], notes: {}, groups: [], members: [], people: {}, links: [], needsLinks: false, needsCats: false, needsV6: false, silenced: [], needsV7: false, isAdmin: false, mySugg: [], inbox: [] };
   var ui = {
     view: 'loading', place: null, person: null, cats: {}, subs: {}, drawer: false, deg: 1, indie: false, work: true, leisure: true, group: '',
     mf: null, rate: null, add: null, email: '', mode: 'signin', recovery: false, busy: false, confirm: null, here: null, sheetClosed: false
@@ -162,15 +162,38 @@
   var DEG_SHORT = [['Friends', 1], ['1st', 2], ['2nd', 3], ['Public', 4]];
   function photoUrl(path) { return sb.storage.from('photos').getPublicUrl(path).data.publicUrl; }
 
+  // "Your own" theme: four colours the person picks; everything else is mixed from them.
+  var CUSTOM_DEFAULT = { main: '#102347', accent: '#D4A017', bg: '#FFFFFF', text: '#111418' };
+  function customColours() {
+    var c = ui.customDraft || (S.me && S.me.theme_custom) || store('themeCustom') || {};
+    var out = {}; Object.keys(CUSTOM_DEFAULT).forEach(function (k) { out[k] = /^#[0-9a-f]{6}$/i.test(c[k] || '') ? c[k] : CUSTOM_DEFAULT[k]; }); return out;
+  }
+  function lum(hex) {
+    var v = [1, 3, 5].map(function (i) { var x = parseInt(hex.substr(i, 2), 16) / 255; return x <= 0.03928 ? x / 12.92 : Math.pow((x + 0.055) / 1.055, 2.4); });
+    return 0.2126 * v[0] + 0.7152 * v[1] + 0.0722 * v[2];
+  }
+  function contrast(a, b) { var x = lum(a), y = lum(b); return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05); }
   function effectiveDark() {
     var t = S.me ? S.me.theme : store('theme');
+    if (t === 'custom') return lum(customColours().bg) < 0.3;
     if (t === 'midnight') return true;
     return window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
   }
   function applyTheme() {
     var t = (S.me && S.me.theme) || store('theme') || 'navy-gold';
-    if (t === 'navy-gold') document.documentElement.removeAttribute('data-vtheme'); else document.documentElement.setAttribute('data-vtheme', t);
-    var meta = document.querySelector('meta[name="theme-color"]'); if (meta) meta.setAttribute('content', effectiveDark() ? '#0B0D12' : '#FFFFFF');
+    var root = document.documentElement;
+    if (t === 'navy-gold') root.removeAttribute('data-vtheme'); else root.setAttribute('data-vtheme', t);
+    ['--c-main', '--c-accent', '--c-bg', '--c-text', '--c-on-main', '--c-link'].forEach(function (k) { root.style.removeProperty(k); });
+    root.style.colorScheme = '';
+    if (t === 'custom') {
+      var cc = customColours();
+      root.style.setProperty('--c-main', cc.main); root.style.setProperty('--c-accent', cc.accent);
+      root.style.setProperty('--c-bg', cc.bg); root.style.setProperty('--c-text', contrast(cc.text, cc.bg) >= 4.5 ? cc.text : (lum(cc.bg) < 0.3 ? '#F5F5F7' : '#111418'));
+      root.style.setProperty('--c-on-main', contrast('#FFFFFF', cc.main) >= contrast('#111418', cc.main) ? '#FFFFFF' : '#111418');
+      root.style.setProperty('--c-link', contrast(cc.main, cc.bg) >= 3 ? cc.main : (lum(cc.bg) < 0.3 ? '#F5F5F7' : '#111418'));
+      root.style.colorScheme = lum(cc.bg) < 0.3 ? 'dark' : 'light';
+    }
+    var meta = document.querySelector('meta[name="theme-color"]'); if (meta) meta.setAttribute('content', t === 'custom' ? customColours().bg : effectiveDark() ? '#0B0D12' : '#FFFFFF');
     document.documentElement.classList.toggle('map-dark', effectiveDark());
   }
   function tileUrl() { return 'https://tile.openstreetmap.org/{z}/{x}/{y}.png'; }
@@ -260,6 +283,7 @@
     var ex6; try { ex6 = await sb.from('reviews').select('experience').limit(1); } catch (e) { ex6 = { error: e }; }
     S.needsV6 = !!(sl.error || ex6.error);
     S.silenced = sl.error ? [] : sl.data.map(function (x) { return x.target; });
+    await loadSuggestions();
     if (S.needsUpdate) { S.friends = out; S.following = []; S.followers = []; }
     else {
       S.friends = out.filter(function (id) { return inc.indexOf(id) >= 0; });
@@ -282,6 +306,17 @@
     await loadPeople(Object.keys(ids));
     store('theme', S.me.theme);
     if (ui.view === 'loading') ui.deg = S.me.see_degree || 1;
+  }
+  // Beta suggestions: your own, plus the owner's inbox if you're the owner.
+  async function loadSuggestions() {
+    var ad; try { ad = await sb.rpc('is_admin'); } catch (e) { ad = { error: e }; }
+    S.needsV7 = !!ad.error || typeof ad.data !== 'boolean';
+    S.isAdmin = !S.needsV7 && ad.data === true;
+    S.mySugg = []; S.inbox = [];
+    if (S.needsV7) return;
+    var ms = await sb.from('suggestions').select('*').eq('user_id', S.session.user.id);
+    if (!ms.error && ms.data) S.mySugg = ms.data.slice().sort(function (a, b) { return a.created_at < b.created_at ? 1 : -1; });
+    if (S.isAdmin) { var ib = await sb.rpc('admin_suggestions'); if (!ib.error && ib.data) S.inbox = ib.data; }
   }
   async function loadPeople(ids) {
     S.people = {};
@@ -498,6 +533,7 @@
     if (S.needsLinks) u.push('004_links_and_saves.sql');
     if (S.needsCats) u.push('005_extra_categories.sql');
     if (S.needsV6) u.push('006_silence_experience.sql');
+    if (S.needsV7) u.push('007_suggestions.sql');
     return u;
   }
   // Search results shown on the map: places already on Vouch, then new ones.
@@ -753,6 +789,62 @@
       '<div class="section" id="mineList">' + mineListHtml() + '</div></div>';
   }
 
+  // ---------- Beta: suggestions ----------
+  var SUGG_AREAS = ['Map', 'Places and reviews', 'Search', 'Friends', 'My reviews', 'Design and look', 'Something broken', 'Other'];
+  var SUGG_STATUS = { new: 'Sent', approved: 'Approved', declined: 'Not this time', done: 'Done' };
+  function viewSuggest() {
+    var list = S.mySugg.map(function (s) {
+      return '<div class="sugg"><div class="row" style="flex-wrap:wrap;gap:6px"><span class="lbl grey">' + esc(s.area) + '</span><span class="sstat s-' + s.status + '">' + SUGG_STATUS[s.status] + '</span><span class="small muted" style="margin-left:auto">' + fmtDate(s.created_at) + '</span></div>' +
+        '<p class="rbody">' + esc(s.body) + '</p>' + (s.reply ? '<p class="small sreply"><b>Reply:</b> ' + esc(s.reply) + '</p>' : '') + '</div>';
+    }).join('');
+    return '<div class="brandpage">' + '<div class="authhero"><div class="wrap"><div class="topbar"><button class="round onnavy" data-act="back" aria-label="Back">' + svg(P.back) + '</button><span class="logo light"><svg viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="9" fill="#0B1A36"/><path d="M9.5 16.5l4.5 4.5 8.5-10" fill="none" stroke="#D4A017" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg>Vouch</span><span style="width:44px"></span></div>' +
+      '<div class="about-hero"><span class="beta onnavy">Beta</span><h1>Help shape Vouch</h1><p>Tell us what to fix, change or add. Every idea is read.</p></div></div></div><div class="wrap page">' +
+      (S.needsV7 ? '<div class="alert" role="alert"><b>Not switched on yet.</b><span>Suggestions start working once the database update is run.</span></div>' :
+      '<form id="suggForm" class="section"><h2>Suggest an improvement</h2><p class="small muted" style="margin:0">Vouch is being tested with friends and colleagues.</p>' +
+      '<label for="suggArea" class="lbl-t">What is it about?</label><select id="suggArea" class="field">' + SUGG_AREAS.map(function (a) { return '<option>' + a + '</option>'; }).join('') + '</select>' +
+      '<label for="suggBody" class="lbl-t">Your suggestion</label><textarea id="suggBody" class="field" required maxlength="2000" placeholder="e.g. Let me filter the map to places open now"></textarea>' +
+      '<span class="small muted">Sent with your name and email so we can follow up.</span>' +
+      '<button class="btn primary" type="submit"' + (ui.busy ? ' disabled' : '') + '>' + (ui.busy ? 'Sending…' : 'Send suggestion') + '</button></form>' +
+      '<div class="section"><h2>Your suggestions · ' + S.mySugg.length + '</h2>' + (list ? '<div class="list">' + list + '</div>' : '<p class="small muted" style="margin:0">Nothing sent yet. You\'ll see each one here with its status.</p>') + '</div>') +
+      '</div></div>';
+  }
+  function inboxCounts() { var c = { new: 0, approved: 0, done: 0, declined: 0 }; S.inbox.forEach(function (s) { c[s.status]++; }); return c; }
+  function viewInbox() {
+    var tab = ui.inboxTab || 'new', c = inboxCounts();
+    var tabs = [['new', 'New'], ['approved', 'Approved'], ['done', 'Done'], ['declined', 'Declined']].map(function (x) { return '<button data-inbox="' + x[0] + '" aria-pressed="' + (tab === x[0]) + '">' + x[1] + (c[x[0]] ? ' ' + c[x[0]] : '') + '</button>'; }).join('');
+    var items = S.inbox.filter(function (s) { return s.status === tab; }).map(function (s) {
+      var acts = s.status === 'new' ? [['declined', 'Decline', 'soft'], ['approved', 'Approve', 'primary']]
+        : s.status === 'approved' ? [['new', 'Back to new', 'soft'], ['done', 'Mark done', 'primary']]
+        : [['new', 'Back to new', 'soft']];
+      return '<div class="sugg"><div class="row" style="gap:10px"><span class="av">' + esc(initials(s.name)) + '</span><span class="pt"><b>' + esc(s.name) + '</b><span class="small muted">' + esc(s.email || '') + ' · ' + fmtDate(s.created_at) + '</span></span><span class="lbl grey">' + esc(s.area) + '</span></div>' +
+        '<p class="rbody">' + esc(s.body) + '</p>' +
+        '<label class="lbl-t" for="reply-' + s.id + '">Reply they\'ll see (optional)</label><input id="reply-' + s.id + '" class="field" maxlength="300" value="' + esc(s.reply || '') + '" placeholder="e.g. Great idea, coming next week">' +
+        '<div class="row">' + acts.map(function (a) { return '<button class="btn ' + a[2] + ' sm" style="flex:1" data-sugg="' + s.id + ':' + a[0] + '">' + a[1] + '</button>'; }).join('') + '</div></div>';
+    }).join('');
+    return '<div class="brandpage">' + '<div class="authhero"><div class="wrap"><div class="topbar"><button class="round onnavy" data-act="back" aria-label="Back">' + svg(P.back) + '</button><span class="logo light"><svg viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="9" fill="#0B1A36"/><path d="M9.5 16.5l4.5 4.5 8.5-10" fill="none" stroke="#D4A017" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg>Vouch</span><span style="width:44px"></span></div>' +
+      '<div class="about-hero"><span class="beta onnavy">Owner only</span><h1>Suggestions inbox</h1><p>' + (c.new ? c.new + ' new to review.' : 'You\'re all caught up.') + '</p></div></div></div><div class="wrap page">' +
+      '<div class="section"><p class="small muted" style="margin:0">Only you can see this page. Approve the ideas you want, then copy them and paste them to Claude to build.</p>' +
+      '<button class="btn primary" data-act="copyapproved"' + (c.approved ? '' : ' disabled') + '>' + svg(P.share, '', 18) + 'Copy approved for Claude' + (c.approved ? ' · ' + c.approved : '') + '</button>' +
+      (ui.copyText ? '<label for="copyBox" class="lbl-t">Your phone blocked automatic copying. Press and hold in the box, Select All, then Copy.</label><textarea id="copyBox" class="field" readonly style="min-height:140px">' + esc(ui.copyText) + '</textarea>' : '') +
+      '<div class="segwide" role="group" aria-label="Show suggestions">' + tabs + '</div></div>' +
+      '<div class="section">' + (items ? '<div class="list">' + items + '</div>' : '<p class="small muted" style="margin:0">Nothing here.</p>') + '</div></div></div>';
+  }
+
+  function customThemeCard() {
+    var cc = customColours(), on = S.me.theme === 'custom';
+    var sw = [['main', 'Main'], ['accent', 'Accent'], ['bg', 'Background'], ['text', 'Text']].map(function (x) {
+      return '<label class="cpick"><span class="cpsq" style="background:' + cc[x[0]] + '"><input type="color" data-ccol="' + x[0] + '" value="' + cc[x[0]] + '" aria-label="' + x[1] + ' colour"></span><span class="small">' + x[1] + '</span></label>';
+    }).join('');
+    return '<div class="theme custom" aria-current="' + on + '"><div class="row between"><span style="font-weight:700">Your own</span>' +
+      (on ? '<button class="linkbtn" data-act="customreset">Reset</button>' : '<button class="pill" data-themepick="custom">Use this</button>') + '</div>' +
+      '<div class="cpicks">' + sw + '</div><span class="small muted">Tap a square to pick a colour.</span></div>';
+  }
+  async function saveCustom(cc) {
+    store('themeCustom', cc);
+    var patch = { theme: 'custom' }; if (!S.needsV7) patch.theme_custom = cc;
+    await updateProfile(patch, true);
+  }
+
   function viewEditPlace() {
     var p = place(ui.place); if (!p) { ui.view = 'map'; return viewMap(); }
     var othersRated = S.reviews.some(function (r) { return r.place_id === p.id && r.user_id !== myId(); });
@@ -920,6 +1012,8 @@
     function opt(field, val, label) { return '<button data-pref="' + field + ':' + val + '" aria-pressed="' + (String(me[field]) === String(val)) + '">' + label + '</button>'; }
     return '<div class="wrap" style="padding-top:20px">' +
       '<div class="section"><div class="row" style="gap:14px"><span class="av me" style="width:64px;height:64px;border-radius:32px;font-size:20px">' + esc(initials(me.name)) + '</span><div class="stack" style="gap:2px;min-width:0"><h1 style="font-size:26px">' + esc(me.name || 'You') + '</h1><span class="small muted">' + esc(S.session.user.email || '') + '</span></div></div></div>' +
+      (S.isAdmin ? '<button class="aboutrow mine-link" data-act="inbox">' + svg(P.tag, '', 20) + '<span><b>Suggestions inbox</b><span class="small muted">' + (inboxCounts().new ? inboxCounts().new + ' new to review' : 'Only you can see this') + '</span></span>' + (inboxCounts().new ? '<span class="dot static">' + inboxCounts().new + '</span>' : '') + svg(P.chevR, '', 16) + '</button>' : '') +
+      '<button class="aboutrow mine-link beta-link" data-act="suggest">' + svg(P.plus, '', 20) + '<span><b>Suggest an improvement</b><span class="small muted">Beta testing: tell us what to fix or add</span></span>' + svg(P.chevR, '', 16) + '</button>' +
       '<button class="aboutrow mine-link" data-act="mine">' + svg(P.list, '', 20) + '<span><b>My reviews</b><span class="small muted">' + myReviews().length + (myReviews().length === 1 ? ' review' : ' reviews') + ' · search and filter</span></span>' + svg(P.chevR, '', 16) + '</button>' +
       '<form id="profileForm" class="section"><h2>Your profile</h2>' +
       '<div class="grid2"><div class="stack" style="gap:6px"><label for="meFirst" class="lbl-t">First name</label><input id="meFirst" class="field" maxlength="40" autocomplete="given-name" value="' + esc(me.first_name != null ? me.first_name : me.name) + '"></div>' +
@@ -938,7 +1032,7 @@
       '<span class="lbl-t">How 2nd degree and the public see my name</span><div class="segwide">' + opt('show_as_3', 'first', 'First') + opt('show_as_3', 'nick', 'Nickname') + opt('show_as_3', 'anon', 'Hidden') + '</div>' +
       '<span class="small muted">Friends always see your full name and nickname.</span>' +
       '<span class="small muted">Private notes and "Only me" reviews are never shared, whatever these say.</span></div>' +
-      '<div class="section" id="sec-theme"><h2>Theme</h2><div class="themes">' + THEMES.map(function (t) { return '<button class="theme" data-themepick="' + t[0] + '" aria-pressed="' + (me.theme === t[0]) + '"><span style="font-weight:700">' + t[1] + '</span><span class="sw"><span style="background:' + t[2] + '"></span><span style="background:' + t[3] + '"></span><span style="background:' + t[4] + '"></span></span></button>'; }).join('') + '</div><span class="small muted">Navy &amp; Gold, Coastal and Forest follow your phone\'s dark mode.</span></div>' +
+      '<div class="section" id="sec-theme"><h2>Theme</h2><div class="themes">' + THEMES.map(function (t) { return '<button class="theme" data-themepick="' + t[0] + '" aria-pressed="' + (me.theme === t[0]) + '"><span style="font-weight:700">' + t[1] + '</span><span class="sw"><span style="background:' + t[2] + '"></span><span style="background:' + t[3] + '"></span><span style="background:' + t[4] + '"></span></span></button>'; }).join('') + customThemeCard() + '</div><span class="small muted">Navy &amp; Gold, Coastal and Forest follow your phone\'s dark mode. Your own theme always uses your colours.</span></div>' +
       '<div class="section"><h2>Install on your phone</h2><p class="small muted" style="margin:0">iPhone: open this page in Safari, tap Share, then Add to Home Screen. Android: open the browser menu and choose Add to Home screen.</p></div>' +
       '<form id="changePassForm" class="section"><h2>Password</h2>' + pwField('chPass', 'new-password', 'New password') + pwField('chPass2', 'new-password', 'Type it again') + PW_RULE + '<button class="btn ghost" type="submit">Change password</button></form>' +
       '<div class="section"><button class="btn ghost" data-act="signout">Sign out</button></div>' +
@@ -947,7 +1041,7 @@
 
   function renderTabs() {
     var t = $('tabs');
-    var show = (['map', 'place', 'friends', 'person', 'me', 'mine', 'rate', 'add', 'preview', 'editplace'].indexOf(ui.view) >= 0) || (ui.view === 'about' && !!S.me && !ui.aboutFirst);
+    var show = (['map', 'place', 'friends', 'person', 'me', 'mine', 'suggest', 'inbox', 'rate', 'add', 'preview', 'editplace'].indexOf(ui.view) >= 0) || (ui.view === 'about' && !!S.me && !ui.aboutFirst);
     var browsing = (ui.view === 'add' && ui.add && ui.add.mode === 'browse') || ui.view === 'preview';
     t.hidden = !show; if (!show) return;
     function cur(v) { return v.indexOf(ui.view) >= 0 ? ' aria-current="page"' : ''; }
@@ -955,7 +1049,7 @@
       '<button class="tab" data-tab="map"' + (browsing ? ' aria-current="page"' : cur(['map', 'place', 'editplace'])) + '>' + svg(P.map) + 'Map</button>' +
       '<button class="tab" data-tab="add"' + (browsing ? '' : cur(['add', 'rate'])) + '><span class="plus">' + svg(P.plus, '', 18) + '</span>Rate</button>' +
       '<button class="tab" data-tab="friends"' + cur(['friends', 'person']) + '>' + svg(P.friends) + 'Friends' + (S.followers.length ? '<span class="dot" aria-label="' + S.followers.length + ' friend requests">' + S.followers.length + '</span>' : '') + '</button>' +
-      '<button class="tab" data-tab="me"' + cur(['me', 'mine']) + '>' + svg(P.me) + 'Me</button></div>';
+      '<button class="tab" data-tab="me"' + cur(['me', 'mine', 'suggest', 'inbox']) + '>' + svg(P.me) + 'Me' + (S.isAdmin && inboxCounts().new ? '<span class="dot" aria-label="' + inboxCounts().new + ' new suggestions">' + inboxCounts().new + '</span>' : '') + '</button></div>';
   }
 
   function render() {
@@ -976,6 +1070,8 @@
     else if (v === 'person') h = viewPerson();
     else if (v === 'me') h = viewMe();
     else if (v === 'mine') h = viewMine();
+    else if (v === 'suggest') h = viewSuggest();
+    else if (v === 'inbox') h = viewInbox();
     else if (v === 'map') h = null;
     else h = '<p class="loading">Loading Vouch…</p>';
     var app = $('app');
@@ -1350,13 +1446,22 @@
       toast(was ? 'Removed from your best ' + bestLabel(bk) + ' ever' : 'Your best ' + bestLabel(bk) + ' ever' + (cur ? ', replacing ' + ((place(cur.place_id) || {}).name || 'your old one') : ''));
       return;
     }
+    if (d.inbox) { ui.inboxTab = d.inbox; render(); return; }
+    if (d.sugg) {
+      var sp2 = d.sugg.split(':'), sidv = sp2[0], st2 = sp2[1], rin = $('reply-' + sidv);
+      var up = await sb.from('suggestions').update({ status: st2, reply: rin ? rin.value.trim() : '', updated_at: new Date().toISOString() }).eq('id', sidv);
+      if (up.error) return fail(up.error, 'Could not update');
+      await loadSuggestions(); render();
+      toast(st2 === 'approved' ? 'Approved' : st2 === 'declined' ? 'Declined' : st2 === 'done' ? 'Marked done' : 'Moved back to New');
+      return;
+    }
     if (d.dellink) { var dl = await sb.from('place_links').delete().eq('id', d.dellink); if (dl.error) return fail(dl.error); await refresh(); toast('Link removed'); return; }
     if (d.tab) { ui.searchMap = false; if (d.tab === 'add') { ui.add = { q: '', results: [], form: null, mode: 'rate' }; } ui.groupEdit = null; go(d.tab); if (d.tab === 'map' || d.tab === 'friends') refreshQuietly(); return; }
     if (d.score) { syncRate(); var s = d.score.split(':'); ui.rate[s[0]] = Number(s[1]); render(); return; }
     if (d.trip) { syncRate(); ui.rate.trip = d.trip; render(); return; }
     if (d.vis) { syncRate(); ui.rate.vis = d.vis; ui.rate.visibility = d.vis; render(); return; }
     if (d.pref) { var pr = d.pref.split(':'); var val = /degree/.test(pr[0]) ? Number(pr[1]) : pr[1]; var patch = {}; patch[pr[0]] = val; if (await updateProfile(patch, true)) { if (pr[0] === 'see_degree') ui.deg = val; await refresh(); toast('Saved'); } return; }
-    if (d.themepick) { await updateProfile({ theme: d.themepick }, true); render(); return; }
+    if (d.themepick) { if (d.themepick === 'custom') { await saveCustom(customColours()); } else await updateProfile({ theme: d.themepick }, true); render(); return; }
     if (d.photo) { var v = $('viewer'); v.innerHTML = '<img src="' + esc(photoUrl(d.photo)) + '" alt="Photo"><button class="round" aria-label="Close photo">' + svg(P.close) + '</button>'; v.hidden = false; return; }
     if (d.pick != null) { var r = ui.add.results[Number(d.pick)]; var ex = S.places.filter(function (p) { return p.osm_id === r.osm_id; })[0]; if (ui.add.mode === 'browse') { if (ex) go('place', { place: ex.id }); else go('preview', { preview: r }); return; } if (ex) { startRate(ex.id); return; } ui.add.form = r; render(); return; }
     if (d.groupEdit) { ui.groupEdit = d.groupEdit; render(); window.scrollTo(0, 0); return; }
@@ -1380,6 +1485,17 @@
       else go(['map', 'place', 'friends', 'person', 'me', 'add', 'preview'].indexOf(from) >= 0 ? from : 'map');
       return;
     }
+    if (a === 'suggest') { go('suggest'); return; }
+    if (a === 'customreset') { ui.customDraft = null; await saveCustom(Object.assign({}, CUSTOM_DEFAULT)); render(); toast('Back to Navy & Gold colours'); return; }
+    if (a === 'inbox') { ui.inboxTab = 'new'; ui.copyText = ''; go('inbox'); return; }
+    if (a === 'copyapproved') {
+      var ap = S.inbox.filter(function (s) { return s.status === 'approved'; }).slice().reverse();
+      var txt = 'Approved Vouch suggestions from beta testers. Please build these:\n\n' + ap.map(function (s, i) { return (i + 1) + '. [' + s.area + '] ' + s.body.replace(/\s+/g, ' ').trim() + ' (from ' + s.name + ', ' + fmtDate(s.created_at) + ')'; }).join('\n');
+      ui.copyText = txt;
+      try { await navigator.clipboard.writeText(txt); ui.copyText = ''; render(); toast('Copied ' + ap.length + ' suggestion' + (ap.length === 1 ? '' : 's') + '. Paste them into your chat with Claude.'); }
+      catch (e) { render(); var ct = $('copyBox'); if (ct) { ct.focus(); ct.select(); } }
+      return;
+    }
     if (a === 'mine') { ui.mineFrom = ui.view === 'map' ? 'map' : 'me'; ui.drawer = false; go('mine'); return; }
     if (a === 'searchmap') { ui.searchMap = true; ui.areaMoved = false; go('map'); return; }
     if (a === 'searcharea') { if (!map || !ui.add) return; var bx = map.getBounds(); ui.areaMoved = false; searchPlaces(ui.add.q, { w: bx.getWest(), n: bx.getNorth(), e: bx.getEast(), s: bx.getSouth() }); return; }
@@ -1394,7 +1510,7 @@
     else if (a === 'near') { locate(function () { if (map) { showMe(); map.setView([ui.here.lat, ui.here.lng], Math.max(map.getZoom(), 14)); } render(); }); }
     else if (a === 'search') { ui.searchMap = false; ui.add = { q: '', results: [], form: null, mode: 'browse' }; go('add'); var si = $('searchIn'); if (si) si.focus(); }
     else if (a === 'ratepreview') { ui.add.mode = 'rate'; ui.add.form = ui.preview; go('add'); }
-    else if (a === 'back') { var to = ui.view === 'editplace' ? 'place' : ui.view === 'preview' ? (ui.prev === 'map' && ui.searchMap ? 'map' : 'add') : ui.view === 'rate' ? 'place' : ui.view === 'person' && ui.prev === 'place' ? 'place' : ui.view === 'person' && ui.prev === 'friends' ? 'friends' : ui.view === 'mine' ? (ui.mineFrom === 'map' ? 'map' : 'me') : ui.view === 'place' && (ui.placeFrom === 'mine' || ui.placeFrom === 'me') ? ui.placeFrom : 'map'; if (to === 'place' && !place(ui.place)) to = 'map'; go(to); }
+    else if (a === 'back') { var to = ui.view === 'editplace' ? 'place' : ui.view === 'preview' ? (ui.prev === 'map' && ui.searchMap ? 'map' : 'add') : ui.view === 'rate' ? 'place' : ui.view === 'person' && ui.prev === 'place' ? 'place' : ui.view === 'person' && ui.prev === 'friends' ? 'friends' : ui.view === 'mine' ? (ui.mineFrom === 'map' ? 'map' : 'me') : ui.view === 'suggest' || ui.view === 'inbox' ? 'me' : ui.view === 'place' && (ui.placeFrom === 'mine' || ui.placeFrom === 'me') ? ui.placeFrom : 'map'; if (to === 'place' && !place(ui.place)) to = 'map'; go(to); }
     else if (a === 'rate') { startRate(ui.place); }
     else if (a === 'share') { sharePlace(place(ui.place)); }
     else if (a === 'invite' || a === 'invite-new') { shareInvite('link'); }
@@ -1452,6 +1568,7 @@
   document.addEventListener('change', async function (e) {
     var t = e.target;
     if (t.id === 'tipKind') { var w = $('tipUrlWrap'); if (w) w.hidden = !(t.value === 'Loyalty' || t.value === 'Where to look'); var tb = $('tipBody'); if (tb) tb.placeholder = TIP_PH[t.value] || ''; return; }
+    if (t.dataset && t.dataset.ccol) { var cd2 = customColours(); cd2[t.dataset.ccol] = t.value; ui.customDraft = null; await saveCustom(cd2); render(); return; }
     if (t.id === 'groupSel') { ui.group = t.value; render(); }
     else if (t.id === 'mineSort') { ui.mf.sort = t.value; var ml = $('mineList'); if (ml) ml.innerHTML = mineListHtml(); }
     else if (t.id === 'photoIn') { ui.files = Array.prototype.slice.call(t.files || [], 0, 6); if (ui.files.length) toast(ui.files.length + (ui.files.length === 1 ? ' photo' : ' photos') + ' ready to upload'); }
@@ -1470,6 +1587,12 @@
     }
   });
   document.addEventListener('input', function (e) {
+    if (e.target.dataset && e.target.dataset.ccol) {
+      var cd = customColours(); cd[e.target.dataset.ccol] = e.target.value; ui.customDraft = cd;
+      if (S.me) S.me.theme = 'custom'; applyTheme();
+      var sq = e.target.closest('.cpsq'); if (sq) sq.style.background = e.target.value;
+      return;
+    }
     if (e.target.id === 'noteIn') saveNoteSoon(ui.place, e.target.value);
     if (e.target.id === 'mineQ') { ui.mf.q = e.target.value; var ml = $('mineList'); if (ml) ml.innerHTML = mineListHtml(); }
   });
@@ -1573,6 +1696,14 @@
       var tq = await sb.from('tips').insert({ place_id: ui.place, user_id: myId(), kind: $('tipKind').value, body: body, url: url });
       if (tq.error) return fail(tq.error);
       ui.tipOpen = false; await refresh(); toast('Tip shared');
+    }
+    else if (id === 'suggForm') {
+      var sb2 = $('suggBody').value.trim(), sarea = $('suggArea').value; if (!sb2) return;
+      ui.busy = true; render();
+      var sq3 = await sb.from('suggestions').insert({ user_id: myId(), area: sarea, body: sb2, status: 'new', reply: '' });
+      ui.busy = false;
+      if (sq3.error) { render(); return fail(sq3.error, 'Could not send'); }
+      await loadSuggestions(); render(); toast('Thanks! Your suggestion has been sent.');
     }
     else if (id === 'linkForm') {
       var nl = normLink($('linkKind').value, $('linkUrl').value);

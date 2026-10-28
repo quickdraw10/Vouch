@@ -433,7 +433,43 @@ h1 { font-size: 32px; }
 .setrow { display: flex; align-items: center; gap: 12px; width: 100%; border: 0; background: none; padding: 4px 0; color: var(--text); text-align: left; }
 .setrow[aria-pressed="true"] .tog { background: var(--primary); }
 .setrow[aria-pressed="true"] .tog::after { transform: translateX(18px); }
+/* Beta suggestions */
+.beta { align-self: flex-start; padding: 3px 10px; border-radius: 10px; background: var(--fav-bg); color: var(--fav-text); box-shadow: inset 0 0 0 1.5px var(--fav); font-size: 12px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; }
+.beta-link svg:first-child { color: var(--trim); }
+.sugg { display: flex; flex-direction: column; gap: 10px; padding-block: 14px; border-top: 1px solid var(--line); }
+.sstat { font-size: 12px; font-weight: 700; padding: 3px 8px; border-radius: 6px; background: var(--surface); color: var(--text2); }
+.sstat.s-approved { background: var(--tint); color: var(--tint-text); }
+.sstat.s-done { background: var(--primary); color: var(--on-primary); }
+.sreply { margin: 0; padding: 10px 12px; border-radius: 12px; background: var(--surface); }
+.dot.static { position: static; min-width: 22px; height: 22px; padding: 0 6px; border-radius: 11px; background: var(--trim); color: #102347; font-size: 12px; font-weight: 700; display: inline-flex; align-items: center; justify-content: center; }
 @media (prefers-reduced-motion: no-preference) { .chip, .pill, .pin { transition: background-color .15s ease; } }
+
+/* Beta pages under the brand header */
+.beta.onnavy { background: rgba(212,160,23,0.18); color: #F6E3A6; box-shadow: inset 0 0 0 1.5px #D4A017; }
+.brandpage .about-hero { padding-bottom: 6px; }
+
+/* Your own theme: four colour squares that open the phone's colour picker */
+.theme.custom { grid-column: 1 / -1; gap: 12px; cursor: default; }
+.theme.custom[aria-current="true"] { box-shadow: inset 0 0 0 2px var(--link); }
+.cpicks { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
+.cpick { display: flex; flex-direction: column; align-items: center; gap: 6px; cursor: pointer; }
+.cpsq { position: relative; width: 52px; height: 52px; border-radius: 14px; box-shadow: inset 0 0 0 1px rgba(127,127,127,0.35), 0 1px 3px rgba(0,0,0,0.12); }
+.cpsq input { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; border: 0; padding: 0; cursor: pointer; }
+.cpick:focus-within .cpsq { outline: 2px solid var(--link); outline-offset: 2px; }
+:root[data-vtheme="custom"] {
+  --primary: var(--c-main); --on-primary: var(--c-on-main); --link: var(--c-link);
+  --trim: var(--c-accent); --fav: var(--c-accent);
+  --bg: var(--c-bg); --card: var(--c-bg); --pin: var(--c-bg); --text: var(--c-text);
+  --canvas: color-mix(in srgb, var(--c-bg) 93%, var(--c-text));
+  --surface: color-mix(in srgb, var(--c-bg) 91%, var(--c-text));
+  --surface2: color-mix(in srgb, var(--c-bg) 95%, var(--c-text));
+  --line: color-mix(in srgb, var(--c-bg) 85%, var(--c-text));
+  --text2: color-mix(in srgb, var(--c-text) 70%, var(--c-bg));
+  --tint: color-mix(in srgb, var(--c-main) 15%, var(--c-bg)); --tint-text: var(--c-link);
+  --fav-bg: color-mix(in srgb, var(--c-accent) 18%, var(--c-bg)); --fav-text: color-mix(in srgb, var(--c-accent) 45%, var(--c-text));
+  --rating: color-mix(in srgb, var(--c-text) 78%, var(--c-bg));
+}
+:root[data-vtheme="custom"] .tab[aria-current="page"] { color: var(--c-link); }
 </style>
 </head>
 <body>
