@@ -43,17 +43,45 @@
   var BESTLBL = { restaurant: 'meal', bite: 'quick bite', coffee: 'coffee', pub: 'pub', cocktails: 'cocktails', hotel: 'hotel', bnb: 'B&B', rental: 'holiday let', camping: 'campsite', supermarket: 'supermarket', convenience: 'corner shop', bakery: 'bakery', butcher: 'butcher', greengrocer: 'greengrocer', fishmonger: 'fishmonger', deli: 'deli', wine: 'wine shop', pharmacy: 'pharmacy', books: 'bookshop', fashion: 'clothes shop', gifts: 'gift shop', outdoor: 'outdoor shop', hardware: 'hardware shop', electronics: 'electronics shop', local: 'local shop', market: 'market', sights: 'sight', outdoors: 'outdoor spot', culture: 'culture fix', activities: 'activity', eat: 'meal', drink: 'drink', stay: 'stay', shop: 'shop', fuel: 'fuel stop', ev: 'charging stop', parking: 'car park', work: 'workspace', explore: 'day out' };
   function catCls(p) { return 'c-' + ((p && p.category) || 'eat'); }
   function iconFor(p) { return ICON[p.subcategory] || ICON[p.category] || ICON.eat; }
-  function kindName(p) { return SUBNAME[p.subcategory] || CATNAME[p.category] || 'Place'; }
+  // A place has a main category plus up to two extras, e.g. a pub that does food.
+  function allCats(p) {
+    var a = [{ category: p.category, subcategory: p.subcategory || '' }];
+    (p.extra || []).forEach(function (x) {
+      var v = String(x).split(':');
+      if (v[0] && CATNAME[v[0]] && !a.some(function (c) { return c.category === v[0] && c.subcategory === (v[1] || ''); })) a.push({ category: v[0], subcategory: v[1] || '' });
+    });
+    return a.slice(0, 3);
+  }
+  function catName1(c) { return SUBNAME[c.subcategory] || CATNAME[c.category] || 'Place'; }
+  function kindName(p) { return allCats(p).map(catName1).join(' · '); }
+  function catOn(p, cats, subs) { return allCats(p).some(function (c) { return cats[c.category] && !(c.subcategory && subs[c.subcategory] === false); }); }
   function bestKey(p) { return p.subcategory || p.category; }
   function bestLabel(k) { return BESTLBL[k] || 'place'; }
-  function catSelect(id, cat, sub) {
-    return '<select id="' + id + '" class="field">' + CATS.map(function (c) {
+  function catSelect(id, cat, sub, none) {
+    return '<select id="' + id + '" class="field">' + (none ? '<option value="">None</option>' : '') + CATS.map(function (c) {
       var subs = SUBS[c[0]];
       if (!subs) return '<option value="' + c[0] + ':"' + (c[0] === cat ? ' selected' : '') + '>' + esc(c[1]) + '</option>';
       return '<optgroup label="' + esc(c[1]) + '">' + subs.map(function (x) { return '<option value="' + c[0] + ':' + x[0] + '"' + (c[0] === cat && (x[0] === sub || (!sub && x === subs[0])) ? ' selected' : '') + '>' + esc(x[1]) + '</option>'; }).join('') + '</optgroup>';
     }).join('') + '</select>';
   }
-  function readCat(id) { var v = ($(id).value || 'eat:').split(':'); return { category: v[0], subcategory: v[1] || '' }; }
+  function readCat(id) { var el = $(id); if (!el || !el.value) return { category: '', subcategory: '' }; var v = el.value.split(':'); return { category: v[0], subcategory: v[1] || '' }; }
+  function extraFields(prefix, p) {
+    if (S.needsCats) return '';
+    var ex = allCats({ category: p.category, subcategory: p.subcategory, extra: p.extra }).slice(1);
+    return '<span class="lbl-t">Also a… (optional)</span>' +
+      catSelect(prefix + '2', ex[0] ? ex[0].category : '', ex[0] ? ex[0].subcategory : '', true) +
+      catSelect(prefix + '3', ex[1] ? ex[1].category : '', ex[1] ? ex[1].subcategory : '', true) +
+      '<span class="small muted">For a pub that does food, or a supermarket with fuel or EV charging.</span>';
+  }
+  function readExtra(prefix, main) {
+    var out = [];
+    [readCat(prefix + '2'), readCat(prefix + '3')].forEach(function (c) {
+      if (!c.category) return;
+      var k = c.category + ':' + c.subcategory;
+      if (k !== main.category + ':' + main.subcategory && out.indexOf(k) < 0) out.push(k);
+    });
+    return out;
+  }
   var STYLES = ['Quality first', 'Value hunter', 'Convenience', 'Road-tripper'];
   var THEMES = [['navy-gold', 'Navy & Gold', '#102347', '#D4A017', '#FFFFFF'], ['midnight', 'Midnight', '#2F55A4', '#E3B53A', '#0B0D12'], ['coastal', 'Coastal', '#C8462A', '#2A8C8C', '#F4F1EC'], ['forest', 'Forest', '#1F4D3A', '#8DB38B', '#EEF0EA']];
   var STAR = '<svg class="star" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2.8l2.85 5.8 6.4.93-4.63 4.5 1.1 6.37L12 17.4l-5.72 3l1.1-6.37L2.75 9.53l6.4-.93L12 2.8z"/></svg>';
@@ -86,7 +114,7 @@
 
   // ---------- State ----------
   var sb = null;
-  var S = { session: null, me: null, friends: [], following: [], followers: [], saves: [], needsUpdate: false, places: [], reviews: [], tips: [], best: [], photos: [], notes: {}, groups: [], members: [], people: {}, links: [], needsLinks: false };
+  var S = { session: null, me: null, friends: [], following: [], followers: [], saves: [], needsUpdate: false, places: [], reviews: [], tips: [], best: [], photos: [], notes: {}, groups: [], members: [], people: {}, links: [], needsLinks: false, needsCats: false };
   var ui = {
     view: 'loading', place: null, person: null, cats: {}, subs: {}, drawer: false, deg: 1, indie: false, work: true, leisure: true, group: '',
     mf: null, rate: null, add: null, email: '', mode: 'signin', recovery: false, busy: false, confirm: null, here: null, sheetClosed: false
@@ -170,8 +198,7 @@
   function centre() { if (ui.here) return ui.here; if (map) { var c = map.getCenter(); return { lat: c.lat, lng: c.lng }; } var v = store('view'); return v ? { lat: v[0], lng: v[1] } : { lat: 51.5074, lng: -0.1278 }; }
   function visiblePlaces() {
     return S.places.filter(function (p) {
-      if (!ui.cats[p.category]) return false;
-      if (p.subcategory && ui.subs[p.subcategory] === false) return false;
+      if (!catOn(p, ui.cats, ui.subs)) return false;
       if (ui.indie && !p.independent) return false;
       var rs = reviewsFor(p.id), saved = S.saves.indexOf(p.id) >= 0;
       if (!rs.length) return saved || (p.created_by === myId() && !ui.group);
@@ -225,6 +252,8 @@
     S.saves = sv.error ? [] : sv.data.map(function (x) { return x.place_id; });
     var lk; try { lk = await sb.from('place_links').select('*'); } catch (e) { lk = { error: e }; }
     S.needsLinks = !!lk.error; S.links = lk.error ? [] : lk.data;
+    var ck; try { ck = await sb.from('places').select('extra').limit(1); } catch (e) { ck = { error: e }; }
+    S.needsCats = !!ck.error;
     if (S.needsUpdate) { S.friends = out; S.following = []; S.followers = []; }
     else {
       S.friends = out.filter(function (id) { return inc.indexOf(id) >= 0; });
@@ -235,6 +264,7 @@
       if (p.subcategory == null) p.subcategory = '';
       if (p.category === 'coffee') { p.category = 'drink'; p.subcategory = p.subcategory || 'coffee'; }
       if (p.category === 'do') p.category = 'explore';
+      if (!Array.isArray(p.extra)) p.extra = [];
       return p;
     });
     S.reviews = res[3].data; S.tips = res[4].data; S.best = res[5].data; S.photos = res[6].data;
@@ -422,6 +452,11 @@
       '<span class="small muted">Paste their website or social page, or type their @name.</span>' +
       '<div class="row"><button class="btn soft" type="button" data-act="cancellink" style="flex:1">Cancel</button><button class="btn primary" type="submit" style="flex:1">Add link</button></div></form>';
   }
+  function titleHead(p) {
+    var cs = allCats(p);
+    return '<div class="catchips">' + cs.map(function (c) { return '<span class="catchip c-' + c.category + '">' + svg(ICON[c.subcategory] || ICON[c.category] || ICON.eat, '', 15) + esc(catName1(c)) + '</span>'; }).join('') +
+      (p.independent ? '<span class="catchip indie">Independent</span>' : '') + '</div><h1>' + esc(p.name) + '</h1>';
+  }
   function heroArt(p) { return '<div class="hero-art ' + catCls(p) + '" aria-hidden="true"><span class="hero-ic">' + svg(iconFor(p)) + '</span></div>'; }
   function gettingThere(p, text) {
     var lat = p.lat, lng = p.lng, q = encodeURIComponent(p.name);
@@ -434,6 +469,7 @@
     if (S.needsUpdate) u.push('002_public_follow_saves.sql');
     if (S.me && S.me.first_name === undefined) u.push('003_categories_names_tips.sql');
     if (S.needsLinks) u.push('004_links_and_saves.sql');
+    if (S.needsCats) u.push('005_extra_categories.sql');
     return u;
   }
   // Search results shown on the map: places already on Vouch, then new ones.
@@ -462,7 +498,9 @@
     }).join('');
     return '<div class="mapbox"><div id="map" aria-label="Map of search results"></div>' +
       '<div class="map-top wrap"><div class="row"><button class="searchbar" data-act="searchlist" aria-label="Back to the list of results">' + svg(P.search, '', 18) + '<span class="q">' + esc((ui.add || {}).q || '') + '</span></button>' +
-      '<button class="fab" data-act="searchclear" aria-label="Clear search">' + svg(P.close) + '</button></div></div></div>' +
+      '<button class="fab" data-act="searchclear" aria-label="Clear search">' + svg(P.close) + '</button></div>' +
+      (ui.areaMoved || (ui.add || {}).searching ? '<div class="row areawrap"><button class="areabtn" data-act="searcharea"' + ((ui.add || {}).searching ? ' disabled' : '') + '>' + svg(P.search, '', 16) + ((ui.add || {}).searching ? 'Searching…' : 'Search this area') + '</button></div>' : '') +
+      '</div></div>' +
       '<div class="sheet' + (ui.sheetClosed ? ' closed' : '') + '" id="sheet">' +
       '<div class="grab wrap" id="grab" role="button" tabindex="0" aria-expanded="' + !ui.sheetClosed + '" aria-label="' + (ui.sheetClosed ? 'Show the list' : 'Hide the list') + '"><div class="handle"></div>' +
       '<div class="row between"><h2>Results · ' + its.length + '</h2><button class="pill iconpill" data-act="searchlist">' + svg(P.list, '', 16) + 'Back to list</button></div></div>' +
@@ -557,8 +595,8 @@
     var dist = ui.here ? ' · ' + fmtMiles(miles(ui.here, p)) + ' away' : '';
     return '<div class="wrap page">' +
       '<div class="topbar"><button class="round" data-act="back" aria-label="Back">' + svg(P.back) + '</button><button class="round" data-act="share" aria-label="Share this place">' + svg(P.share) + '</button></div>' +
-      (photos.length ? '<div class="photos hero">' + photos.slice(0, 4).map(function (ph) { return '<button class="photo" data-photo="' + esc(ph.path) + '" aria-label="View photo by ' + esc(nameOf(ph.user_id)) + '"><img src="' + esc(photoUrl(ph.path)) + '" alt="" loading="lazy"></button>'; }).join('') + '</div>' : heroArt(p)) +
-      '<div class="section titlecard"><span class="eyebrow">' + (p.independent ? 'Independent · ' : '') + esc(kindName(p)) + '</span><h1>' + esc(p.name) + '</h1>' + (p.address ? '<span class="muted">' + esc(p.address) + dist + '</span>' : '') + favs +
+      (photos.length ? '<div class="photos hero">' + photos.slice(0, 4).map(function (ph) { return '<button class="photo" data-photo="' + esc(ph.path) + '" aria-label="View photo by ' + esc(nameOf(ph.user_id)) + '"><img src="' + esc(photoUrl(ph.path)) + '" alt="" loading="lazy"></button>'; }).join('') + '</div>' : '') +
+      '<div class="section titlecard">' + titleHead(p) + (p.address ? '<span class="muted">' + esc(p.address) + dist + '</span>' : '') + favs +
       (links ? '<div class="linkchips">' + links + '</div>' : '') +
       (mine ? '<span class="onmap">' + svg(P.bookmark, '', 15) + 'On your map</span>'
         : '<div class="row"><button class="btn ' + (saved ? 'soft' : 'ghost') + '" data-act="save" style="flex:1" aria-pressed="' + saved + '">' + svg(P.bookmark, '', 18) + (saved ? 'On your map' : 'Add to my map') + '</button><button class="btn primary" data-act="rate" style="flex:1">Rate it</button></div>') + '</div>' +
@@ -589,11 +627,13 @@
     }
     var steps = [
       ['Rate the places you go', 'Score quality, value and location from 1 (worst) to 10 (best). It goes straight onto your map.', 'add', ''],
-      ['See what your friends rate', 'The map shows places your friends have scored. Navy pins are their top picks (8.5+). A gold ring means someone\'s best ever.', 'map', ''],
+      ['See what your friends rate', 'The map shows places your friends have scored. Navy pins are their top picks (8.5+). A gold pin means it\'s someone\'s best ever.', 'map', ''],
       ['Widen the circle when you travel', 'Somewhere new? Switch to 1st or 2nd degree for friends of friends, or Public for everyone. Follow kindred spirits who rate like you.', 'friends:discover', '']
     ];
     var things = [
-      [P.search, 'Search any place', 'Restaurants, pubs, hotels, shops, fuel, EV chargers and more. See results as a list or on the map.', 'search', ''],
+      [P.search, 'Search any place', 'Restaurants, pubs, hotels, shops, fuel, EV chargers and more. See results as a list or on the map, then move the map and tap Search this area.', 'search', ''],
+      [P.list, 'My reviews', 'Your own library of reviews. Search them, sort them and filter them like the map.', 'mine', ''],
+      [P.plus, 'Up to three categories', 'A pub that does food, a supermarket with fuel or EV charging. Pick up to three when you add a place.', 'add', ''],
       [P.bookmark, 'Save for later', 'Add a friend\'s pick to your map, then rate it when you\'ve been.', 'map', 'Tap any pin, then Add to my map'],
       [P.tag, 'Tips', 'Avoid the table by the door. Ask for the lunch menu. Loyalty schemes.', 'map', 'Tap any pin, then Add a tip'],
       [P.globe, 'Website and social', 'Add a place\'s website or Instagram, or link your own post.', 'map', 'Tap any pin, then Add a link'],
@@ -631,13 +671,12 @@
     var f = ui.mf, words = f.q.toLowerCase().split(/\s+/).filter(Boolean);
     var list = myReviews().map(function (r) { return { r: r, p: place(r.place_id) }; }).filter(function (o) {
       var p = o.p, r = o.r; if (!p) return false;
-      if (!f.cats[p.category]) return false;
-      if (p.subcategory && f.subs[p.subcategory] === false) return false;
+      if (!catOn(p, f.cats, f.subs)) return false;
       if (f.indie && !p.independent) return false;
       if (f.only && r.visibility !== 'me') return false;
       if (!((f.work && r.trip === 'Work') || (f.leisure && r.trip === 'Leisure'))) return false;
       if (words.length) {
-        var hay = [p.name, p.address, kindName(p), CATNAME[p.category], r.body, S.notes[p.id] || '', r.trip, fmtDate(r.visited_on)].join(' ').toLowerCase();
+        var hay = [p.name, p.address, kindName(p), allCats(p).map(function (c) { return CATNAME[c.category]; }).join(' '), r.body, S.notes[p.id] || '', r.trip, fmtDate(r.visited_on)].join(' ').toLowerCase();
         if (!words.every(function (w) { return hay.indexOf(w) >= 0; })) return false;
       }
       return true;
@@ -682,7 +721,7 @@
     var othersRated = S.reviews.some(function (r) { return r.place_id === p.id && r.user_id !== myId(); });
     return '<div class="wrap"><div class="topbar"><button class="round" data-act="back" aria-label="Back">' + svg(P.back) + '</button><h2>Place details</h2><span style="width:44px"></span></div>' +
       '<form id="editPlaceForm" class="stack section"><label for="epName" class="lbl-t">Name</label><input id="epName" class="field" required maxlength="120" value="' + esc(p.name) + '">' +
-      '<label for="epCat" class="lbl-t">Category</label>' + catSelect('epCat', p.category, p.subcategory) +
+      '<label for="epCat" class="lbl-t">Category</label>' + catSelect('epCat', p.category, p.subcategory) + extraFields('epCat', p) +
       '<label for="epAddr" class="lbl-t">Area or address</label><input id="epAddr" class="field" maxlength="200" value="' + esc(p.address) + '">' +
       '<label class="check"><input id="epIndie" type="checkbox"' + (p.independent ? ' checked' : '') + '>Independent business (not a chain)</label>' +
       '<button class="btn primary" type="submit">Save changes</button></form>' +
@@ -753,7 +792,7 @@
         (browse ? '' : '<div class="section"><button class="btn ghost" data-act="droppin">Can\'t find it? Add it where the map is centred</button><span class="small muted">Move the map to the spot first.</span></div>')
         :
         '<form id="placeForm" class="stack section"><label for="pName" class="lbl-t">Name</label><input id="pName" class="field" required maxlength="120" value="' + esc(f.name) + '">' +
-        '<label for="pCat" class="lbl-t">Category</label>' + catSelect('pCat', f.category, f.subcategory) +
+        '<label for="pCat" class="lbl-t">Category</label>' + catSelect('pCat', f.category, f.subcategory) + extraFields('pCat', f) +
         '<label for="pAddr" class="lbl-t">Area or address</label><input id="pAddr" class="field" maxlength="200" value="' + esc(f.address) + '">' +
         '<label class="check"><input id="pIndie" type="checkbox"' + (f.independent ? ' checked' : '') + '>Independent business (not a chain)</label>' +
         '<button class="btn primary" type="submit"' + (ui.busy ? ' disabled' : '') + '>Next: rate it</button><button class="btn soft" type="button" data-act="unpick">Back to search</button></form>') +
@@ -764,8 +803,7 @@
     var r = ui.preview; if (!r) { ui.view = 'map'; return viewMap(); }
     var links = (r.links || []).map(linkChip).join('');
     return '<div class="wrap page"><div class="topbar"><button class="round" data-act="back" aria-label="Back to results">' + svg(P.back) + '</button><span></span></div>' +
-      heroArt(r) +
-      '<div class="section titlecard"><span class="eyebrow">' + (r.independent ? 'Independent · ' : '') + esc(kindName(r)) + '</span><h1>' + esc(r.name) + '</h1><span class="muted">' + esc(r.address) + (ui.here ? ' · ' + fmtMiles(miles(ui.here, r)) + ' away' : '') + '</span>' +
+      '<div class="section titlecard">' + titleHead(r) + '<span class="muted">' + esc(r.address) + (ui.here ? ' · ' + fmtMiles(miles(ui.here, r)) + ' away' : '') + '</span>' +
       (links ? '<div class="linkchips">' + links + '</div>' : '') + '</div>' +
       '<div class="section"><div class="row" style="gap:16px"><div class="big">–</div><div class="pt" style="gap:4px"><span style="font-weight:600;font-size:17px">Not on Vouch yet</span><span class="small muted">None of your friends have rated it. Been there? Be the first.</span></div></div>' +
       '<button class="btn primary" data-act="ratepreview">Rate this place</button></div>' +
@@ -851,7 +889,7 @@
       '<label for="meBio" class="lbl-t">About you</label><textarea id="meBio" class="field" style="min-height:72px" maxlength="280" placeholder="e.g. Always on the road for events. Love a good bakery and a cheap EV charge.">' + esc(me.bio) + '</textarea>' +
       '<span class="lbl-t">How you rate</span><div class="filters">' + STYLES.map(function (s) { return '<button type="button" class="pill" data-style="' + s + '" aria-pressed="' + (me.style === s) + '">' + s + '</button>'; }).join('') + '</div>' +
       '<button class="btn primary" type="submit">Save profile</button></form>' +
-      '<div class="section"><h2>Your best ever</h2>' + (best.length ? '<div class="list">' + best.map(function (b) { var pl = place(b.place_id); return pl ? '<button class="item" data-place="' + pl.id + '"><span class="tile ' + catCls(pl) + '" style="box-shadow:0 0 0 3px var(--fav)">' + svg(iconFor(pl)) + '</span><span class="t"><span class="eyebrow" style="color:var(--fav-text)">Best ' + esc(bestLabel(b.category)) + '</span><span class="n">' + esc(pl.name) + '</span>' + (b.quote ? '<span class="small">“' + esc(b.quote) + '”</span>' : '') + '</span></button>' : ''; }).join('') + '</div>' : '<p class="small muted" style="margin:0">Open a place and tap "Make this my best ever". It gets a gold edge on friends\' maps.</p>') + '</div>' +
+      '<div class="section"><h2>Your best ever</h2>' + (best.length ? '<div class="list">' + best.map(function (b) { var pl = place(b.place_id); return pl ? '<button class="item" data-place="' + pl.id + '"><span class="tile ' + catCls(pl) + '" style="box-shadow:0 0 0 3px var(--fav)">' + svg(iconFor(pl)) + '</span><span class="t"><span class="eyebrow" style="color:var(--fav-text)">Best ' + esc(bestLabel(b.category)) + '</span><span class="n">' + esc(pl.name) + '</span>' + (b.quote ? '<span class="small">“' + esc(b.quote) + '”</span>' : '') + '</span></button>' : ''; }).join('') + '</div>' : '<p class="small muted" style="margin:0">Open a place and tap "Make this my best ever". It shows as a gold pin on friends\' maps.</p>') + '</div>' +
       '<div class="section" id="sec-privacy"><h2>Privacy</h2>' +
       '<p class="small muted" style="margin:0">Friends are people you\'ve both added. 1st degree are their friends, 2nd degree are friends of those.</p>' +
       '<span class="lbl-t">Recommendations I see by default</span><div class="segwide">' + opt('see_degree', 1, 'Friends') + opt('see_degree', 2, '+1st') + opt('see_degree', 3, '+2nd') + opt('see_degree', 4, 'Public') + '</div>' +
@@ -954,7 +992,15 @@
     if (!v && S.places.length > 1) map.fitBounds(L.latLngBounds(S.places.map(function (p) { return [p.lat, p.lng]; })), { padding: [40, 40], maxZoom: 15, animate: false });
     if (ui.searchMap) fitResults();
     if (ui.here) showMe();
-    map.on('moveend', function () { saveView(); if (!ui.here) { var app = $('app'); var holder = document.createElement('div'); holder.innerHTML = viewMap(); var s = app.querySelector('.sheet'); if (s) s.replaceWith(holder.querySelector('.sheet')); } });
+    map.on('moveend', function () {
+      saveView();
+      if (ui.searchMap) {
+        if (Date.now() - lastFit > 700 && !(ui.add && ui.add.searching)) ui.areaMoved = true;
+        var hold = document.createElement('div'); hold.innerHTML = viewMap();
+        var top = $('app').querySelector('.map-top'); if (top) top.replaceWith(hold.querySelector('.map-top'));
+        return;
+      }
+      if (!ui.here) { var app = $('app'); var holder = document.createElement('div'); holder.innerHTML = viewMap(); var s = app.querySelector('.sheet'); if (s) s.replaceWith(holder.querySelector('.sheet')); } });
   }
   function drawMarkers() {
     if (!markerLayer) return;
@@ -977,8 +1023,10 @@
       markerLayer.addLayer(m);
     });
   }
+  var lastFit = 0;
   function fitResults() {
     var its = searchItems(); if (!its.length || !map) return;
+    lastFit = Date.now();
     var pts = its.map(function (o) { var p = o.p || o.r; return [p.lat, p.lng]; });
     var bottom = ui.sheetClosed ? 90 : Math.min(window.innerHeight * 0.5, 470) + 20;
     if (pts.length === 1) map.setView(pts[0], 15, { animate: false });
@@ -1039,15 +1087,23 @@
     if (c === 'historic') return k('explore', 'sights');
     return k('eat', 'restaurant');
   }
-  async function searchPlaces(q) {
+  function osmExtra(r) {
+    var x = r.extratags || {}, m = osmCategory(r), out = [];
+    if (m.category === 'drink' && (x.food === 'yes' || x.cuisine)) out.push('eat:restaurant');
+    if (m.category === 'shop' && (x.fuel === 'yes' || x['amenity:fuel'] === 'yes')) out.push('fuel:');
+    if (x['amenity:charging_station'] === 'yes' || x['charging_station'] === 'yes') out.push('ev:');
+    return out.filter(function (k) { return k.split(':')[0] !== m.category; }).slice(0, 2);
+  }
+  async function searchPlaces(q, box) {
     var c = centre();
     var a = ui.add; a.searching = true; a.done = false; a.q = q;
+    function inBox(p) { return !box || (p.lat <= box.n && p.lat >= box.s && p.lng >= box.w && p.lng <= box.e); }
     var words = q.toLowerCase().split(/\s+/).filter(function (w) { return w.length > 1; });
-    a.existing = S.places.filter(function (p) { var hay = (p.name + ' ' + p.address).toLowerCase(); var hits = words.filter(function (w) { return hay.indexOf(w) >= 0; }).length; return hits > 0 && (hits === words.length || p.name.toLowerCase().indexOf(words[0]) >= 0); }).slice(0, 8);
+    a.existing = S.places.filter(function (p) { var hay = (p.name + ' ' + p.address).toLowerCase(); var hits = words.filter(function (w) { return hay.indexOf(w) >= 0; }).length; return hits > 0 && (hits === words.length || p.name.toLowerCase().indexOf(words[0]) >= 0) && inBox(p); }).slice(0, 8);
     render();
     try {
       var url = 'https://nominatim.openstreetmap.org/search?format=jsonv2&addressdetails=1&extratags=1&limit=10&accept-language=en-GB&q=' + encodeURIComponent(q) +
-        '&viewbox=' + (c.lng - 0.5) + ',' + (c.lat + 0.35) + ',' + (c.lng + 0.5) + ',' + (c.lat - 0.35);
+        (box ? '&bounded=1&viewbox=' + box.w + ',' + box.n + ',' + box.e + ',' + box.s : '&viewbox=' + (c.lng - 0.5) + ',' + (c.lat + 0.35) + ',' + (c.lng + 0.5) + ',' + (c.lat - 0.35));
       var res = await fetch(url, { headers: { 'Accept': 'application/json' } });
       if (!res.ok) throw new Error('search service returned ' + res.status);
       var data = await res.json();
@@ -1056,11 +1112,14 @@
         var area = [ad.road, ad.suburb || ad.neighbourhood, ad.town || ad.city || ad.village].filter(Boolean).join(', ');
         return {
           name: r.name || (r.display_name || '').split(',')[0], address: area || r.display_name, lat: Number(r.lat), lng: Number(r.lon),
-          category: osmCategory(r).category, subcategory: osmCategory(r).subcategory, osm_id: r.osm_type + ':' + r.osm_id, independent: !(r.extratags && (r.extratags.brand || r.extratags['brand:wikidata'])), links: extractLinks(r.extratags)
+          category: osmCategory(r).category, subcategory: osmCategory(r).subcategory, osm_id: r.osm_type + ':' + r.osm_id, independent: !(r.extratags && (r.extratags.brand || r.extratags['brand:wikidata'])), links: extractLinks(r.extratags), extra: osmExtra(r)
         };
       }).filter(function (r) { return r.name; });
     } catch (e) { a.results = []; fail(e, 'Search failed'); }
-    a.searching = false; a.done = true; render();
+    a.searching = false; a.done = true;
+    if (box) a.results = a.results.filter(inBox);
+    render();
+    if (box && !searchItems().length) toast('Nothing called "' + q + '" in this area. Move the map and try again.');
   }
 
   // ---------- Actions ----------
@@ -1226,7 +1285,7 @@
       if (!S.session || !S.me) { toast('Log in or create an account to try this'); return; }
       var gt = d.goto.split(':'), hint = d.hint; ui.aboutFirst = false; ui.groupEdit = null; ui.searchMap = false;
       if (gt[0] === 'search' || gt[0] === 'add') { ui.add = { q: '', results: [], form: null, mode: gt[0] === 'search' ? 'browse' : 'rate' }; go('add'); var si2 = $('searchIn'); if (si2) si2.focus(); }
-      else { if (gt[1] === 'filters') ui.drawer = true; go(gt[0]); if (gt[1] && gt[1] !== 'filters') { var sec = $('sec-' + gt[1]); if (sec) sec.scrollIntoView({ block: 'start' }); } }
+      else { if (gt[1] === 'filters') ui.drawer = true; if (gt[0] === 'mine') ui.mineFrom = 'me'; go(gt[0]); if (gt[1] && gt[1] !== 'filters') { var sec = $('sec-' + gt[1]); if (sec) sec.scrollIntoView({ block: 'start' }); } }
       if (hint) toast(hint);
       return;
     }
@@ -1268,7 +1327,8 @@
       return;
     }
     if (a === 'mine') { ui.mineFrom = ui.view === 'map' ? 'map' : 'me'; ui.drawer = false; go('mine'); return; }
-    if (a === 'searchmap') { ui.searchMap = true; go('map'); return; }
+    if (a === 'searchmap') { ui.searchMap = true; ui.areaMoved = false; go('map'); return; }
+    if (a === 'searcharea') { if (!map || !ui.add) return; var bx = map.getBounds(); ui.areaMoved = false; searchPlaces(ui.add.q, { w: bx.getWest(), n: bx.getNorth(), e: bx.getEast(), s: bx.getSouth() }); return; }
     if (a === 'searchlist') { ui.searchMap = false; go('add'); return; }
     if (a === 'searchclear') { ui.searchMap = false; render(); return; }
     if (a === 'addlink') { ui.linkOpen = true; render(); var lu = $('linkUrl'); if (lu) lu.focus(); return; }
@@ -1424,7 +1484,9 @@
     }
     else if (id === 'editPlaceForm') {
       var ec = readCat('epCat');
-      var ep = await sb.from('places').update({ name: $('epName').value.trim(), category: ec.category, subcategory: ec.subcategory, address: $('epAddr').value.trim(), independent: $('epIndie').checked }).eq('id', ui.place);
+      var epRow = { name: $('epName').value.trim(), category: ec.category, subcategory: ec.subcategory, address: $('epAddr').value.trim(), independent: $('epIndie').checked };
+      if (!S.needsCats) epRow.extra = readExtra('epCat', ec);
+      var ep = await sb.from('places').update(epRow).eq('id', ui.place);
       if (ep.error) return fail(ep.error, 'Could not save');
       await loadAll(); toast('Place updated'); go('place', { place: ui.place });
     }
@@ -1433,6 +1495,7 @@
       var f = ui.add.form; ui.busy = true;
       var pc = readCat('pCat');
       var row = { name: $('pName').value.trim(), category: pc.category, subcategory: pc.subcategory, address: $('pAddr').value.trim(), independent: $('pIndie').checked, lat: f.lat, lng: f.lng, osm_id: f.osm_id || null, created_by: myId() };
+      if (!S.needsCats) row.extra = readExtra('pCat', pc);
       var ins = await sb.from('places').insert(row).select().single();
       ui.busy = false;
       if (ins.error) {
