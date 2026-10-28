@@ -89,9 +89,11 @@
   var S = { session: null, me: null, friends: [], following: [], followers: [], saves: [], needsUpdate: false, places: [], reviews: [], tips: [], best: [], photos: [], notes: {}, groups: [], members: [], people: {}, links: [], needsLinks: false };
   var ui = {
     view: 'loading', place: null, person: null, cats: {}, subs: {}, drawer: false, deg: 1, indie: false, work: true, leisure: true, group: '',
-    rate: null, add: null, email: '', mode: 'signin', recovery: false, busy: false, confirm: null, here: null, sheetClosed: false
+    mf: null, rate: null, add: null, email: '', mode: 'signin', recovery: false, busy: false, confirm: null, here: null, sheetClosed: false
   };
   CATS.forEach(function (c) { ui.cats[c[0]] = true; });
+  function resetMineFilters(keepQ) { var q = keepQ && ui.mf ? ui.mf.q : ''; ui.mf = { q: q, cats: {}, subs: {}, work: true, leisure: true, indie: false, only: false, sort: 'new', open: ui.mf ? ui.mf.open : false }; CATS.forEach(function (c) { ui.mf.cats[c[0]] = true; }); }
+  resetMineFilters();
   var map = null, markerLayer = null, meMarker = null, tileLayer = null;
 
   // ---------- Helpers ----------
@@ -473,6 +475,7 @@
     var nOff = CATS.filter(function (k) { return !ui.cats[k[0]]; }).length + Object.keys(ui.subs).filter(function (k) { return ui.subs[k] === false; }).length + (ui.indie ? 1 : 0) + (!ui.work || !ui.leisure ? 1 : 0) + (ui.group ? 1 : 0);
     var drawer = '<div class="drawerwrap"><button class="drawer-tab' + (ui.drawer ? ' open' : '') + '" data-act="drawer" aria-expanded="' + ui.drawer + '" aria-controls="drawer" aria-label="' + (ui.drawer ? 'Hide filters' : 'Show filters') + '">' + svg(P.filter, '', 18) + (nOff ? '<span class="dot">' + nOff + '</span>' : '') + svg(ui.drawer ? P.chevL : P.chevR, '', 14) + '</button>' +
       '<aside class="drawer' + (ui.drawer ? ' open' : '') + '" id="drawer" aria-label="Filters"' + (ui.drawer ? '' : ' inert') + '><div class="drawer-in">' +
+      '<button class="aboutrow mine-link" data-act="mine" style="margin:0 0 6px">' + svg(P.list, '', 20) + '<span><b>My reviews</b><span class="small muted">' + myReviews().length + ' · search and filter</span></span>' + svg(P.chevR, '', 16) + '</button>' +
       '<div class="row between"><h2>Show on map</h2>' + (nOff ? '<button class="linkbtn" data-act="showall">Show all</button>' : '') + '</div>' +
       CATS.map(function (k) {
         var on = ui.cats[k[0]], subs = SUBS[k[0]];
@@ -619,6 +622,59 @@
         ? '<div class="stack"><button class="btn primary" data-goto="map">Explore the map</button><button class="btn ghost" data-goto="friends:invite">Invite friends</button></div>'
         : '<div class="stack"><button class="btn primary" data-auth="signup">Create account</button><button class="btn ghost" data-auth="signin">Log in</button></div>') +
       '</div></div>';
+  }
+
+  // ---------- My reviews: search and filter your own library ----------
+  function myReviews() { return S.reviews.filter(function (r) { return r.user_id === myId(); }); }
+  function mineOff() { var f = ui.mf; return CATS.filter(function (k) { return !f.cats[k[0]]; }).length + Object.keys(f.subs).filter(function (k) { return f.subs[k] === false; }).length + (f.indie ? 1 : 0) + (!f.work || !f.leisure ? 1 : 0) + (f.only ? 1 : 0); }
+  function mineFiltered() {
+    var f = ui.mf, words = f.q.toLowerCase().split(/\s+/).filter(Boolean);
+    var list = myReviews().map(function (r) { return { r: r, p: place(r.place_id) }; }).filter(function (o) {
+      var p = o.p, r = o.r; if (!p) return false;
+      if (!f.cats[p.category]) return false;
+      if (p.subcategory && f.subs[p.subcategory] === false) return false;
+      if (f.indie && !p.independent) return false;
+      if (f.only && r.visibility !== 'me') return false;
+      if (!((f.work && r.trip === 'Work') || (f.leisure && r.trip === 'Leisure'))) return false;
+      if (words.length) {
+        var hay = [p.name, p.address, kindName(p), CATNAME[p.category], r.body, S.notes[p.id] || '', r.trip, fmtDate(r.visited_on)].join(' ').toLowerCase();
+        if (!words.every(function (w) { return hay.indexOf(w) >= 0; })) return false;
+      }
+      return true;
+    });
+    var by = { new: function (a, b) { return a.r.visited_on < b.r.visited_on ? 1 : -1; }, old: function (a, b) { return a.r.visited_on > b.r.visited_on ? 1 : -1; },
+      high: function (a, b) { return overall(b.r) - overall(a.r); }, low: function (a, b) { return overall(a.r) - overall(b.r); }, az: function (a, b) { return a.p.name.localeCompare(b.p.name); } }[f.sort];
+    return list.sort(by);
+  }
+  function mineListHtml() {
+    var list = mineFiltered(), all = myReviews().length;
+    var rows = list.map(function (o) {
+      var p = o.p, r = o.r;
+      return '<button class="item" data-place="' + p.id + '"><span class="tile ' + catCls(p) + '">' + svg(iconFor(p)) + '</span><span class="t"><span class="n">' + esc(p.name) + '</span><span class="small muted">' + esc(kindName(p)) + ' · ' + fmtDate(r.visited_on) + ' · ' + r.trip + (r.visibility === 'me' ? ' · only me' : '') + '</span>' +
+        (r.body ? '<span class="small snippet">' + esc(r.body) + '</span>' : '') + '</span>' + badge(overall(r)) + '</button>';
+    }).join('');
+    var head = '<div class="row between mine-count"><span class="small muted" id="mineCount">' + (list.length === all ? all + (all === 1 ? ' review' : ' reviews') : list.length + ' of ' + all + ' reviews') + '</span>' +
+      (list.length ? '<span class="small muted">Average ' + mean(list.map(function (o) { return overall(o.r); })).toFixed(1) + '</span>' : '') + '</div>';
+    return head + (rows ? '<div class="list">' + rows + '</div>'
+      : '<p class="empty">' + (all ? 'Nothing matches. Try another word, or <button class="linkbtn inline" data-mact="clear">clear the filters</button>.' : 'No reviews yet. Tap Rate to add your first.') + '</p>');
+  }
+  function viewMine() {
+    var f = ui.mf, off = mineOff();
+    var sorts = [['new', 'Newest first'], ['old', 'Oldest first'], ['high', 'Highest score'], ['low', 'Lowest score'], ['az', 'A to Z']];
+    var panel = '<div class="section mine-filters"><div class="row between"><h2>Show</h2>' + (off ? '<button class="linkbtn" data-mact="clear">Show all</button>' : '') + '</div>' +
+      CATS.map(function (k) {
+        var on = f.cats[k[0]], subs = SUBS[k[0]];
+        return '<div class="dcat"><button class="dcat-main" data-mcat="' + k[0] + '" aria-pressed="' + on + '"><span class="tile c-' + k[0] + '">' + svg(ICON[k[0]]) + '</span><span class="dname">' + k[1] + '</span><span class="tog" aria-hidden="true"></span></button>' +
+          (subs && on ? '<div class="dsubs">' + subs.map(function (x) { return '<button class="pill" data-msub="' + x[0] + '" aria-pressed="' + (f.subs[x[0]] !== false) + '">' + esc(x[1]) + '</button>'; }).join('') + '</div>' : '') + '</div>';
+      }).join('') +
+      '<h3 class="dh">Trips</h3><div class="filters"><button class="pill" data-mact="work" aria-pressed="' + f.work + '">Work</button><button class="pill" data-mact="leisure" aria-pressed="' + f.leisure + '">Leisure</button></div>' +
+      '<h3 class="dh">Only show</h3><div class="filters"><button class="pill" data-mact="indie" aria-pressed="' + f.indie + '">Independent businesses</button><button class="pill" data-mact="only" aria-pressed="' + f.only + '">Only-me reviews</button></div></div>';
+    return '<div class="wrap page"><div class="topbar"><button class="round" data-act="back" aria-label="Back">' + svg(P.back) + '</button><h2>My reviews</h2><span style="width:44px"></span></div>' +
+      '<div class="section"><div class="mine-search">' + svg(P.search, '', 18) + '<input id="mineQ" class="field" type="search" enterkeyhint="search" autocomplete="off" placeholder="Search my reviews" aria-label="Search your reviews" value="' + esc(f.q) + '"></div>' +
+      '<div class="row" style="gap:8px;flex-wrap:wrap"><button class="pill iconpill" data-mact="open" aria-expanded="' + f.open + '">' + svg(P.filter, '', 16) + 'Filters' + (off ? ' · ' + off : '') + '</button>' +
+      '<select id="mineSort" class="pill" aria-label="Sort by">' + sorts.map(function (s) { return '<option value="' + s[0] + '"' + (f.sort === s[0] ? ' selected' : '') + '>' + s[1] + '</option>'; }).join('') + '</select></div></div>' +
+      (f.open ? panel : '') +
+      '<div class="section" id="mineList">' + mineListHtml() + '</div></div>';
   }
 
   function viewEditPlace() {
@@ -786,6 +842,7 @@
     function opt(field, val, label) { return '<button data-pref="' + field + ':' + val + '" aria-pressed="' + (String(me[field]) === String(val)) + '">' + label + '</button>'; }
     return '<div class="wrap" style="padding-top:20px">' +
       '<div class="section"><div class="row" style="gap:14px"><span class="av me" style="width:64px;height:64px;border-radius:32px;font-size:20px">' + esc(initials(me.name)) + '</span><div class="stack" style="gap:2px;min-width:0"><h1 style="font-size:26px">' + esc(me.name || 'You') + '</h1><span class="small muted">' + esc(S.session.user.email || '') + '</span></div></div></div>' +
+      '<button class="aboutrow mine-link" data-act="mine">' + svg(P.list, '', 20) + '<span><b>My reviews</b><span class="small muted">' + myReviews().length + (myReviews().length === 1 ? ' review' : ' reviews') + ' · search and filter</span></span>' + svg(P.chevR, '', 16) + '</button>' +
       '<form id="profileForm" class="section"><h2>Your profile</h2>' +
       '<div class="grid2"><div class="stack" style="gap:6px"><label for="meFirst" class="lbl-t">First name</label><input id="meFirst" class="field" maxlength="40" autocomplete="given-name" value="' + esc(me.first_name != null ? me.first_name : me.name) + '"></div>' +
       '<div class="stack" style="gap:6px"><label for="meLast" class="lbl-t">Last name</label><input id="meLast" class="field" maxlength="40" autocomplete="family-name" value="' + esc(me.last_name || '') + '"></div></div>' +
@@ -795,7 +852,6 @@
       '<span class="lbl-t">How you rate</span><div class="filters">' + STYLES.map(function (s) { return '<button type="button" class="pill" data-style="' + s + '" aria-pressed="' + (me.style === s) + '">' + s + '</button>'; }).join('') + '</div>' +
       '<button class="btn primary" type="submit">Save profile</button></form>' +
       '<div class="section"><h2>Your best ever</h2>' + (best.length ? '<div class="list">' + best.map(function (b) { var pl = place(b.place_id); return pl ? '<button class="item" data-place="' + pl.id + '"><span class="tile ' + catCls(pl) + '" style="box-shadow:0 0 0 3px var(--fav)">' + svg(iconFor(pl)) + '</span><span class="t"><span class="eyebrow" style="color:var(--fav-text)">Best ' + esc(bestLabel(b.category)) + '</span><span class="n">' + esc(pl.name) + '</span>' + (b.quote ? '<span class="small">“' + esc(b.quote) + '”</span>' : '') + '</span></button>' : ''; }).join('') + '</div>' : '<p class="small muted" style="margin:0">Open a place and tap "Make this my best ever". It gets a gold edge on friends\' maps.</p>') + '</div>' +
-      '<div class="section"><h2>Your reviews · ' + mine.length + '</h2>' + (mine.length ? '<div class="list">' + mine.map(function (r) { var pl = place(r.place_id); return pl ? '<button class="item" data-place="' + pl.id + '"><span class="tile ' + catCls(pl) + '">' + svg(iconFor(pl)) + '</span><span class="t"><span class="n">' + esc(pl.name) + '</span><span class="small muted">' + fmtDate(r.visited_on) + ' · ' + r.trip + (r.visibility === 'me' ? ' · only me' : '') + '</span></span>' + badge(overall(r)) + '</button>' : ''; }).join('') + '</div>' : '<p class="small muted" style="margin:0">No reviews yet. Tap Rate to add your first.</p>') + '</div>' +
       '<div class="section" id="sec-privacy"><h2>Privacy</h2>' +
       '<p class="small muted" style="margin:0">Friends are people you\'ve both added. 1st degree are their friends, 2nd degree are friends of those.</p>' +
       '<span class="lbl-t">Recommendations I see by default</span><div class="segwide">' + opt('see_degree', 1, 'Friends') + opt('see_degree', 2, '+1st') + opt('see_degree', 3, '+2nd') + opt('see_degree', 4, 'Public') + '</div>' +
@@ -814,7 +870,7 @@
 
   function renderTabs() {
     var t = $('tabs');
-    var show = (['map', 'place', 'friends', 'person', 'me', 'rate', 'add', 'preview', 'editplace'].indexOf(ui.view) >= 0) || (ui.view === 'about' && !!S.me && !ui.aboutFirst);
+    var show = (['map', 'place', 'friends', 'person', 'me', 'mine', 'rate', 'add', 'preview', 'editplace'].indexOf(ui.view) >= 0) || (ui.view === 'about' && !!S.me && !ui.aboutFirst);
     var browsing = (ui.view === 'add' && ui.add && ui.add.mode === 'browse') || ui.view === 'preview';
     t.hidden = !show; if (!show) return;
     function cur(v) { return v.indexOf(ui.view) >= 0 ? ' aria-current="page"' : ''; }
@@ -822,7 +878,7 @@
       '<button class="tab" data-tab="map"' + (browsing ? ' aria-current="page"' : cur(['map', 'place', 'editplace'])) + '>' + svg(P.map) + 'Map</button>' +
       '<button class="tab" data-tab="add"' + (browsing ? '' : cur(['add', 'rate'])) + '><span class="plus">' + svg(P.plus, '', 18) + '</span>Rate</button>' +
       '<button class="tab" data-tab="friends"' + cur(['friends', 'person']) + '>' + svg(P.friends) + 'Friends' + (S.followers.length ? '<span class="dot" aria-label="' + S.followers.length + ' friend requests">' + S.followers.length + '</span>' : '') + '</button>' +
-      '<button class="tab" data-tab="me"' + cur(['me']) + '>' + svg(P.me) + 'Me</button></div>';
+      '<button class="tab" data-tab="me"' + cur(['me', 'mine']) + '>' + svg(P.me) + 'Me</button></div>';
   }
 
   function render() {
@@ -842,6 +898,7 @@
     else if (v === 'friends') h = viewFriends();
     else if (v === 'person') h = viewPerson();
     else if (v === 'me') h = viewMe();
+    else if (v === 'mine') h = viewMine();
     else if (v === 'map') h = null;
     else h = '<p class="loading">Loading Vouch…</p>';
     var app = $('app');
@@ -1013,6 +1070,7 @@
     if (view !== 'person') ui.confirm = null;
     if (view !== 'place') { ui.tipOpen = false; ui.linkOpen = false; }
     ui.prev = ui.view === view ? ui.prev : ui.view;
+    if (view === 'place' && ['rate', 'editplace', 'place', 'person'].indexOf(ui.view) < 0) ui.placeFrom = ui.view;
     ui.view = view; render(); window.scrollTo(0, 0);
   }
   function startRate(pid) {
@@ -1172,6 +1230,16 @@
       if (hint) toast(hint);
       return;
     }
+    if (d.mcat) { ui.mf.cats[d.mcat] = !ui.mf.cats[d.mcat]; render(); return; }
+    if (d.msub) { ui.mf.subs[d.msub] = ui.mf.subs[d.msub] === false; render(); return; }
+    if (d.mact) {
+      var m = d.mact, f = ui.mf;
+      if (m === 'open') f.open = !f.open;
+      else if (m === 'clear') { resetMineFilters(false); ui.mf.open = f.open; }
+      else if (m === 'work' || m === 'leisure') { f[m] = !f[m]; if (!f.work && !f.leisure) f[m === 'work' ? 'leisure' : 'work'] = true; }
+      else f[m] = !f[m];
+      render(); return;
+    }
     if (d.dellink) { var dl = await sb.from('place_links').delete().eq('id', d.dellink); if (dl.error) return fail(dl.error); await refresh(); toast('Link removed'); return; }
     if (d.tab) { ui.searchMap = false; if (d.tab === 'add') { ui.add = { q: '', results: [], form: null, mode: 'rate' }; } ui.groupEdit = null; go(d.tab); if (d.tab === 'map' || d.tab === 'friends') refreshQuietly(); return; }
     if (d.score) { syncRate(); var s = d.score.split(':'); ui.rate[s[0]] = Number(s[1]); render(); return; }
@@ -1199,6 +1267,7 @@
       else go(['map', 'place', 'friends', 'person', 'me', 'add', 'preview'].indexOf(from) >= 0 ? from : 'map');
       return;
     }
+    if (a === 'mine') { ui.mineFrom = ui.view === 'map' ? 'map' : 'me'; ui.drawer = false; go('mine'); return; }
     if (a === 'searchmap') { ui.searchMap = true; go('map'); return; }
     if (a === 'searchlist') { ui.searchMap = false; go('add'); return; }
     if (a === 'searchclear') { ui.searchMap = false; render(); return; }
@@ -1211,7 +1280,7 @@
     else if (a === 'near') { locate(function () { if (map) { showMe(); map.setView([ui.here.lat, ui.here.lng], Math.max(map.getZoom(), 14)); } render(); }); }
     else if (a === 'search') { ui.searchMap = false; ui.add = { q: '', results: [], form: null, mode: 'browse' }; go('add'); var si = $('searchIn'); if (si) si.focus(); }
     else if (a === 'ratepreview') { ui.add.mode = 'rate'; ui.add.form = ui.preview; go('add'); }
-    else if (a === 'back') { var to = ui.view === 'editplace' ? 'place' : ui.view === 'preview' ? (ui.prev === 'map' && ui.searchMap ? 'map' : 'add') : ui.view === 'rate' ? 'place' : ui.view === 'person' && ui.prev === 'place' ? 'place' : ui.view === 'person' && ui.prev === 'friends' ? 'friends' : 'map'; if (to === 'place' && !place(ui.place)) to = 'map'; go(to); }
+    else if (a === 'back') { var to = ui.view === 'editplace' ? 'place' : ui.view === 'preview' ? (ui.prev === 'map' && ui.searchMap ? 'map' : 'add') : ui.view === 'rate' ? 'place' : ui.view === 'person' && ui.prev === 'place' ? 'place' : ui.view === 'person' && ui.prev === 'friends' ? 'friends' : ui.view === 'mine' ? (ui.mineFrom === 'map' ? 'map' : 'me') : ui.view === 'place' && (ui.placeFrom === 'mine' || ui.placeFrom === 'me') ? ui.placeFrom : 'map'; if (to === 'place' && !place(ui.place)) to = 'map'; go(to); }
     else if (a === 'rate') { startRate(ui.place); }
     else if (a === 'share') { sharePlace(place(ui.place)); }
     else if (a === 'invite' || a === 'invite-new') { shareInvite('link'); }
@@ -1270,6 +1339,7 @@
     var t = e.target;
     if (t.id === 'tipKind') { var w = $('tipUrlWrap'); if (w) w.hidden = !(t.value === 'Loyalty' || t.value === 'Where to look'); var tb = $('tipBody'); if (tb) tb.placeholder = TIP_PH[t.value] || ''; return; }
     if (t.id === 'groupSel') { ui.group = t.value; render(); }
+    else if (t.id === 'mineSort') { ui.mf.sort = t.value; var ml = $('mineList'); if (ml) ml.innerHTML = mineListHtml(); }
     else if (t.id === 'photoIn') { ui.files = Array.prototype.slice.call(t.files || [], 0, 6); if (ui.files.length) toast(ui.files.length + (ui.files.length === 1 ? ' photo' : ' photos') + ' ready to upload'); }
     else if (t.id === 'visitIn') { syncRate(); }
     else if (t.id === 'quoteIn') {
@@ -1284,7 +1354,10 @@
       if (t.checked) S.members.push({ group_id: g, member: m }); else S.members = S.members.filter(function (x) { return !(x.group_id === g && x.member === m); });
     }
   });
-  document.addEventListener('input', function (e) { if (e.target.id === 'noteIn') saveNoteSoon(ui.place, e.target.value); });
+  document.addEventListener('input', function (e) {
+    if (e.target.id === 'noteIn') saveNoteSoon(ui.place, e.target.value);
+    if (e.target.id === 'mineQ') { ui.mf.q = e.target.value; var ml = $('mineList'); if (ml) ml.innerHTML = mineListHtml(); }
+  });
 
   document.addEventListener('submit', async function (e) {
     e.preventDefault();
