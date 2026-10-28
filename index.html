@@ -470,6 +470,11 @@ h1 { font-size: 32px; }
   --rating: color-mix(in srgb, var(--c-text) 78%, var(--c-bg));
 }
 :root[data-vtheme="custom"] .tab[aria-current="page"] { color: var(--c-link); }
+
+/* Keep the tab bar pinned on iPhone: the screen stays still and only the content area scrolls. */
+html, body { height: 100%; overflow: hidden; overscroll-behavior: none; }
+.app { position: fixed; top: 0; bottom: 0; left: 0; right: 0; min-height: 0; overflow-y: auto; overflow-x: hidden; -webkit-overflow-scrolling: touch; overscroll-behavior-y: contain;
+  padding-bottom: calc(var(--tabs-h) + 24px); }
 </style>
 </head>
 <body>

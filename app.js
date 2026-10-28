@@ -1258,6 +1258,8 @@
   }
 
   // ---------- Actions ----------
+  // The page itself never scrolls (that keeps the tab bar pinned on iPhone); the #app area does.
+  function toTop() { var el = $('app'); if (el) el.scrollTop = 0; window.scrollTo(0, 0); }
   function go(view, extra) {
     if (notePending) flushNote();
     if (extra) for (var k in extra) ui[k] = extra[k];
@@ -1265,7 +1267,7 @@
     if (view !== 'place') { ui.tipOpen = false; ui.linkOpen = false; ui.bestPick = false; }
     ui.prev = ui.view === view ? ui.prev : ui.view;
     if (view === 'place' && ['rate', 'editplace', 'place', 'person'].indexOf(ui.view) < 0) ui.placeFrom = ui.view;
-    ui.view = view; render(); window.scrollTo(0, 0);
+    ui.view = view; render(); toTop();
   }
   function startRate(pid) {
     var mine = S.reviews.filter(function (r) { return r.place_id === pid && r.user_id === myId(); })[0];
@@ -1409,7 +1411,7 @@
     if (!el || el.tagName === 'A') return;
     var d = el.dataset;
     if (d.mode) { syncEmail(); ui.mode = d.mode; ui.failed = false; render(); return; }
-    if (d.auth) { ui.mode = d.auth; ui.failed = false; ui.view = 'signin'; render(); window.scrollTo(0, 0); return; }
+    if (d.auth) { ui.mode = d.auth; ui.failed = false; ui.view = 'signin'; render(); toTop(); return; }
     if (d.pw) { var inp = $(d.pw); if (inp) { var show = inp.type === 'password'; inp.type = show ? 'text' : 'password'; el.textContent = show ? 'Hide' : 'Show'; el.setAttribute('aria-pressed', String(show)); el.setAttribute('aria-label', show ? 'Hide password' : 'Show password'); } return; }
     if (d.place) { go('place', { place: d.place }); return; }
     if (d.placeRate) { startRate(d.placeRate); return; }
@@ -1464,7 +1466,7 @@
     if (d.themepick) { if (d.themepick === 'custom') { await saveCustom(customColours()); } else await updateProfile({ theme: d.themepick }, true); render(); return; }
     if (d.photo) { var v = $('viewer'); v.innerHTML = '<img src="' + esc(photoUrl(d.photo)) + '" alt="Photo"><button class="round" aria-label="Close photo">' + svg(P.close) + '</button>'; v.hidden = false; return; }
     if (d.pick != null) { var r = ui.add.results[Number(d.pick)]; var ex = S.places.filter(function (p) { return p.osm_id === r.osm_id; })[0]; if (ui.add.mode === 'browse') { if (ex) go('place', { place: ex.id }); else go('preview', { preview: r }); return; } if (ex) { startRate(ex.id); return; } ui.add.form = r; render(); return; }
-    if (d.groupEdit) { ui.groupEdit = d.groupEdit; render(); window.scrollTo(0, 0); return; }
+    if (d.groupEdit) { ui.groupEdit = d.groupEdit; render(); toTop(); return; }
     if (d.delgroup) { var dg = await sb.from('groups').delete().eq('id', d.delgroup); if (dg.error) return fail(dg.error); if (ui.group === d.delgroup) ui.group = ''; ui.groupEdit = null; await refresh(); return; }
     if (d.deltip) { var dt = await sb.from('tips').delete().eq('id', d.deltip); if (dt.error) return fail(dt.error); await refresh(); return; }
     if (d.follow) { await follow(d.follow); return; }
@@ -1722,7 +1724,7 @@
     else if (id === 'groupForm') {
       var gq = await sb.from('groups').insert({ owner: myId(), name: $('groupName').value.trim() }).select().single();
       if (gq.error) return fail(gq.error);
-      S.groups.push(gq.data); ui.groupEdit = gq.data.id; render(); window.scrollTo(0, 0);
+      S.groups.push(gq.data); ui.groupEdit = gq.data.id; render(); toTop();
     }
   });
 
