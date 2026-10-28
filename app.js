@@ -40,7 +40,7 @@
   var CATNAME = { eat: 'Eat', drink: 'Drink', stay: 'Stay', shop: 'Shop', fuel: 'Fuel', ev: 'EV charging', parking: 'Parking', work: 'Workspace', explore: 'Explore' };
   var SUBNAME = {};
   Object.keys(SUBS).forEach(function (k) { SUBS[k].forEach(function (x) { SUBNAME[x[0]] = x[1]; }); });
-  var BESTLBL = { restaurant: 'meal', bite: 'quick bite', coffee: 'coffee', pub: 'pub', cocktails: 'cocktails', hotel: 'hotel', bnb: 'B&B', rental: 'holiday let', camping: 'campsite', supermarket: 'supermarket', convenience: 'corner shop', bakery: 'bakery', butcher: 'butcher', greengrocer: 'greengrocer', fishmonger: 'fishmonger', deli: 'deli', wine: 'wine shop', pharmacy: 'pharmacy', books: 'bookshop', fashion: 'clothes shop', gifts: 'gift shop', outdoor: 'outdoor shop', hardware: 'hardware shop', electronics: 'electronics shop', local: 'local shop', market: 'market', sights: 'sight', outdoors: 'outdoor spot', culture: 'culture fix', activities: 'activity', eat: 'meal', drink: 'drink', stay: 'stay', shop: 'shop', fuel: 'fuel stop', ev: 'charging stop', parking: 'car park', work: 'workspace', explore: 'day out' };
+  var BESTLBL = { restaurant: 'restaurant', bite: 'quick bite', coffee: 'coffee shop', pub: 'pub', cocktails: 'cocktail bar', hotel: 'hotel', bnb: 'B&B', rental: 'holiday let', camping: 'campsite', supermarket: 'supermarket', convenience: 'corner shop', bakery: 'bakery', butcher: 'butcher', greengrocer: 'greengrocer', fishmonger: 'fishmonger', deli: 'deli', wine: 'wine shop', pharmacy: 'pharmacy', books: 'bookshop', fashion: 'clothes shop', gifts: 'gift shop', outdoor: 'outdoor shop', hardware: 'hardware shop', electronics: 'electronics shop', local: 'local shop', market: 'market', sights: 'sight', outdoors: 'outdoor spot', culture: 'culture spot', activities: 'activity', eat: 'place to eat', drink: 'place for a drink', stay: 'place to stay', shop: 'shop', fuel: 'petrol station', ev: 'EV charger', parking: 'car park', work: 'workspace', explore: 'day out' };
   function catCls(p) { return 'c-' + ((p && p.category) || 'eat'); }
   function iconFor(p) { return ICON[p.subcategory] || ICON[p.category] || ICON.eat; }
   // A place has a main category plus up to two extras, e.g. a pub that does food.
@@ -82,7 +82,6 @@
     });
     return out;
   }
-  var STYLES = ['Quality first', 'Value hunter', 'Convenience', 'Road-tripper'];
   var THEMES = [['navy-gold', 'Navy & Gold', '#102347', '#D4A017', '#FFFFFF'], ['midnight', 'Midnight', '#2F55A4', '#E3B53A', '#0B0D12'], ['coastal', 'Coastal', '#C8462A', '#2A8C8C', '#F4F1EC'], ['forest', 'Forest', '#1F4D3A', '#8DB38B', '#EEF0EA']];
   var STAR = '<svg class="star" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2.8l2.85 5.8 6.4.93-4.63 4.5 1.1 6.37L12 17.4l-5.72 3l1.1-6.37L2.75 9.53l6.4-.93L12 2.8z"/></svg>';
   var P = {
@@ -110,11 +109,12 @@
     msg: '<path d="M4 5h16v11H9l-5 4V5z"/>',
     list: '<path d="M8 6h12M8 12h12M8 18h12M4 6h.01M4 12h.01M4 18h.01"/>'
   };
+  var STARP = '<path d="M12 2.8l2.85 5.8 6.4.93-4.63 4.5 1.1 6.37L12 17.4l-5.72 3l1.1-6.37L2.75 9.53l6.4-.93L12 2.8z"/>';
   function svg(path, cls, size) { return '<svg class="' + (cls || '') + '"' + (size ? ' width="' + size + '" height="' + size + '"' : '') + ' viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + path + '</svg>'; }
 
   // ---------- State ----------
   var sb = null;
-  var S = { session: null, me: null, friends: [], following: [], followers: [], saves: [], needsUpdate: false, places: [], reviews: [], tips: [], best: [], photos: [], notes: {}, groups: [], members: [], people: {}, links: [], needsLinks: false, needsCats: false };
+  var S = { session: null, me: null, friends: [], following: [], followers: [], saves: [], needsUpdate: false, places: [], reviews: [], tips: [], best: [], photos: [], notes: {}, groups: [], members: [], people: {}, links: [], needsLinks: false, needsCats: false, needsV6: false, silenced: [] };
   var ui = {
     view: 'loading', place: null, person: null, cats: {}, subs: {}, drawer: false, deg: 1, indie: false, work: true, leisure: true, group: '',
     mf: null, rate: null, add: null, email: '', mode: 'signin', recovery: false, busy: false, confirm: null, here: null, sheetClosed: false
@@ -136,7 +136,7 @@
   function fmtDate(d) { return new Date(d + (String(d).length === 10 ? 'T12:00:00' : '')).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }); }
   function initials(n) { var p = String(n || '').trim().split(/\s+/).filter(Boolean); if (!p.length) return '?'; return (p[0][0] + (p[1] ? p[1][0] : '')).toUpperCase(); }
   function mean(a) { return a.length ? a.reduce(function (s, x) { return s + x; }, 0) / a.length : 0; }
-  function overall(r) { return (r.quality + r.value + r.location) / 3; }
+  function overall(r) { return r.experience ? (r.quality + r.value + r.location + r.experience) / 4 : (r.quality + r.value + r.location) / 3; }
   function todayISO() { var d = new Date(); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
   function miles(a, b) {
     var R = 3958.8, toR = Math.PI / 180;
@@ -176,8 +176,10 @@
   function tileUrl() { return 'https://tile.openstreetmap.org/{z}/{x}/{y}.png'; }
 
   // ---------- Visibility maths ----------
+  function isSilenced(uid) { return S.silenced.indexOf(uid) >= 0; }
   function inScope(r) {
     if (r.user_id === myId()) return true;
+    if (isSilenced(r.user_id)) return false;
     if (ui.group === 'aliens') return S.following.indexOf(r.user_id) >= 0;
     if (ui.group === 'friends') return degreeOf(r.user_id) === 1;
     if (ui.group) {
@@ -192,7 +194,7 @@
     var close = rs.filter(function (r) { return degreeOf(r.user_id) <= 1; });
     return { rs: rs, score: rs.length ? mean(rs.map(overall)) : 0, top: close.length > 0 && mean(close.map(overall)) >= 8.5, wide: rs.length > 0 && close.length === 0 };
   }
-  function favsFor(pid) { return S.best.filter(function (b) { return b.place_id === pid && (b.user_id === myId() || degreeOf(b.user_id) <= (ui.deg >= 4 ? 99 : ui.deg)); }); }
+  function favsFor(pid) { return S.best.filter(function (b) { return b.place_id === pid && !isSilenced(b.user_id) && (b.user_id === myId() || degreeOf(b.user_id) <= (ui.deg >= 4 ? 99 : ui.deg)); }); }
   function tipsFor(pid) { return S.tips.filter(function (t) { return t.place_id === pid; }); }
   function photosFor(pid) { return S.photos.filter(function (p) { return p.place_id === pid; }).sort(function (a, b) { return a.created_at < b.created_at ? 1 : -1; }); }
   function centre() { if (ui.here) return ui.here; if (map) { var c = map.getCenter(); return { lat: c.lat, lng: c.lng }; } var v = store('view'); return v ? { lat: v[0], lng: v[1] } : { lat: 51.5074, lng: -0.1278 }; }
@@ -254,6 +256,10 @@
     S.needsLinks = !!lk.error; S.links = lk.error ? [] : lk.data;
     var ck; try { ck = await sb.from('places').select('extra').limit(1); } catch (e) { ck = { error: e }; }
     S.needsCats = !!ck.error;
+    var sl; try { sl = await sb.from('silenced').select('target'); } catch (e) { sl = { error: e }; }
+    var ex6; try { ex6 = await sb.from('reviews').select('experience').limit(1); } catch (e) { ex6 = { error: e }; }
+    S.needsV6 = !!(sl.error || ex6.error);
+    S.silenced = sl.error ? [] : sl.data.map(function (x) { return x.target; });
     if (S.needsUpdate) { S.friends = out; S.following = []; S.followers = []; }
     else {
       S.friends = out.filter(function (id) { return inc.indexOf(id) >= 0; });
@@ -293,6 +299,29 @@
     var view = ui.view;
     try { await loadAll(); if (ui.view === view && !document.activeElement.matches('input, textarea, select')) render(); } catch (e) { console.error(e); }
   }
+
+  // New friend requests show up without you having to refresh.
+  async function checkRequests() {
+    if (!S.session || !S.me || S.needsUpdate || document.hidden) return;
+    var q; try { q = await sb.from('friends').select('user_id').eq('friend_id', myId()); } catch (e) { return; }
+    if (!q || q.error || !q.data) return;
+    var inc = []; q.data.forEach(function (r) { if (inc.indexOf(r.user_id) < 0) inc.push(r.user_id); });
+    var out = S.friends.concat(S.following);
+    var reqs = inc.filter(function (id) { return out.indexOf(id) < 0; });
+    var fresh = reqs.filter(function (id) { return S.followers.indexOf(id) < 0; });
+    if (!fresh.length && reqs.length === S.followers.length) return;
+    if (fresh.length) {
+      var pr = await sb.rpc('people', { ids: fresh });
+      if (!pr.error && pr.data) pr.data.forEach(function (p) { S.people[p.id] = { name: p.display_name, nickname: p.nickname || '', home: p.home, degree: p.degree, isPublic: !!p.is_public }; });
+    }
+    S.followers = reqs;
+    renderTabs(); renderPrompt();
+    if (ui.view === 'friends' && !document.activeElement.matches('input, textarea, select')) render();
+    if (fresh.length) toast('New friend request from ' + nameOf(fresh[0]));
+  }
+  setInterval(checkRequests, 45000);
+  document.addEventListener('visibilitychange', function () { if (!document.hidden) checkRequests(); });
+  window.addEventListener('focus', function () { checkRequests(); });
 
   // ---------- Views ----------
   function viewSetup() {
@@ -388,8 +417,6 @@
       '<form id="onboardForm" class="stack section"><div class="grid2"><div class="stack" style="gap:6px"><label for="obFirst" class="lbl-t">First name</label><input id="obFirst" class="field" autocomplete="given-name" required></div>' +
       '<div class="stack" style="gap:6px"><label for="obLast" class="lbl-t">Last name</label><input id="obLast" class="field" autocomplete="family-name"></div></div>' +
       '<label for="obNick" class="lbl-t">Nickname (optional)</label><input id="obNick" class="field" autocomplete="nickname" placeholder="What friends call you">' +
-      '<span class="lbl-t">How do you usually rate?</span><div class="filters">' + STYLES.map(function (s, i) { return '<label class="pill" style="display:inline-flex;align-items:center;gap:6px"><input type="radio" name="obStyle" value="' + s + '"' + (i === 0 ? ' checked' : '') + '>' + s + '</label>'; }).join('') + '</div>' +
-      '<span class="small muted">Shown on your reviews so friends know what your scores mean.</span>' +
       '<span class="lbl-t">Who can see your reviews?</span>' +
       '<label class="check"><input type="radio" name="obShare" value="2" checked>Friends and friends of friends</label>' +
       '<label class="check"><input type="radio" name="obShare" value="4">Everyone (public). Helps people with similar taste find you.</label>' +
@@ -470,6 +497,7 @@
     if (S.me && S.me.first_name === undefined) u.push('003_categories_names_tips.sql');
     if (S.needsLinks) u.push('004_links_and_saves.sql');
     if (S.needsCats) u.push('005_extra_categories.sql');
+    if (S.needsV6) u.push('006_silence_experience.sql');
     return u;
   }
   // Search results shown on the map: places already on Vouch, then new ones.
@@ -557,18 +585,17 @@
     var friendsN = rs.filter(function (r) { return degreeOf(r.user_id) === 1; }).length;
     var mine = S.reviews.filter(function (r) { return r.place_id === p.id && r.user_id === myId(); })[0];
     var photos = photosFor(p.id);
-    var bars = [['Quality', 'quality'], ['Value', 'value'], ['Location', 'location']].map(function (b) {
-      var m = mean(rs.map(function (r) { return r[b[1]]; }));
+    var bars = [['Quality', 'quality'], ['Experience', 'experience'], ['Value', 'value'], ['Location', 'location']].filter(function (b) { return rs.some(function (r) { return r[b[1]]; }); }).map(function (b) {
+      var m = mean(rs.filter(function (r) { return r[b[1]]; }).map(function (r) { return r[b[1]]; }));
       return '<div class="bar"><span>' + b[0] + '</span><span class="track"><span class="fill" style="width:' + (m * 10) + '%"></span></span><b>' + m.toFixed(1) + '</b></div>';
     }).join('');
     var said = rs.slice().sort(function (a, b) { return a.visited_on < b.visited_on ? 1 : -1; }).map(function (r) {
       var n = daysSince(r.visited_on), ed = edited(r), link = safeUrl(r.link);
-      var style = r.user_id === myId() ? S.me.style : (S.people[r.user_id] || {}).style;
       return '<article class="review">' +
-        '<button class="person" data-person="' + r.user_id + '"><span class="' + avClass(r.user_id) + '">' + esc(avText(r.user_id)) + '</span><span class="pt"><span class="pn">' + esc(nameOf(r.user_id)) + '</span><span class="small muted">' + degLabel(r.user_id) + (style ? ' · ' + esc(style) : '') + '</span></span>' + badge(overall(r)) + '</button>' +
+        '<button class="person" data-person="' + r.user_id + '"><span class="' + avClass(r.user_id) + '">' + esc(avText(r.user_id)) + '</span><span class="pt"><span class="pn">' + esc(nameOf(r.user_id)) + '</span><span class="small muted">' + degLabel(r.user_id) + '</span></span>' + badge(overall(r)) + '</button>' +
         '<div class="row" style="flex-wrap:wrap;gap:6px"><span class="date">' + fmtDate(r.visited_on) + '</span><span class="ago' + (n > 60 ? ' old' : '') + '">' + agoText(n) + '</span><span class="lbl grey">' + r.trip + '</span>' + (r.visibility === 'me' ? '<span class="lbl grey">Only you</span>' : '') + '</div>' +
         (r.body ? '<p class="rbody">' + esc(r.body) + '</p>' : '') +
-        '<span class="small muted">Quality ' + r.quality + ' · Value ' + r.value + ' · Location ' + r.location + (ed ? ' · ' + ed : '') + '</span>' +
+        '<span class="small muted">Quality ' + r.quality + (r.experience ? ' · Experience ' + r.experience : '') + ' · Value ' + r.value + ' · Location ' + r.location + (ed ? ' · ' + ed : '') + '</span>' +
         (link ? '<a class="linkchip sm" href="' + esc(link) + '" target="_blank" rel="noopener noreferrer">' + svg(P.link, '', 15) + 'View post</a>' : '') +
         '</article>';
     }).join('');
@@ -584,8 +611,16 @@
         (t.user_id === myId() ? '<button class="pill" style="align-self:flex-start" data-deltip="' + t.id + '">Remove</button>' : '') + '</span></div>';
     }).join('');
     var links = S.links.filter(function (l) { return l.place_id === p.id; }).map(linkChip).join('');
-    var myBest = S.best.filter(function (b) { return b.user_id === myId() && b.category === bestKey(p); })[0];
-    var isMyBest = myBest && myBest.place_id === p.id;
+    var bkeys = []; allCats(p).forEach(function (c) { var k = c.subcategory || c.category; if (bkeys.indexOf(k) < 0) bkeys.push(k); });
+    var myBestKeys = bkeys.filter(function (k) { return S.best.some(function (b) { return b.user_id === myId() && b.category === k && b.place_id === p.id; }); });
+    function orList(ks, word) { var l = ks.map(bestLabel); return l.length < 2 ? l[0] : l.slice(0, -1).join(', ') + ' ' + word + ' ' + l[l.length - 1]; }
+    var myBest = myBestKeys.length ? S.best.filter(function (b) { return b.user_id === myId() && b.category === myBestKeys[0] && b.place_id === p.id; })[0] : null;
+    var bestBtns = (bkeys.length > 1 && !ui.bestPick)
+      ? '<button class="btn ' + (myBestKeys.length ? 'gold' : 'ghost') + '" data-act="bestpick">' + STAR.replace('class="star"', 'width="16" height="16"') + (myBestKeys.length ? 'My best ' + esc(orList(myBestKeys, 'and')) + ' ever · Change' : 'Make this my best ' + esc(orList(bkeys, 'or')) + ' ever') + '</button>'
+      : (bkeys.length > 1 ? '<span class="lbl-t">Best ever for which?</span>' : '') + bkeys.map(function (k) {
+          var on = myBestKeys.indexOf(k) >= 0;
+          return '<button class="btn ' + (on ? 'gold' : 'ghost') + '" data-bestkey="' + k + '" aria-pressed="' + on + '">' + STAR.replace('class="star"', 'width="16" height="16"') + (bkeys.length > 1 ? 'My best ' + esc(bestLabel(k)) + ' ever' : on ? 'Remove from my best ' + esc(bestLabel(k)) + ' ever' : 'Make this my best ' + esc(bestLabel(k)) + ' ever') + '</button>';
+        }).join('') + (bkeys.length > 1 ? '<button class="linkbtn" data-act="bestpick">Done</button>' : '');
     var degSeg = [['Friends', 1], ['+1st', 2], ['+2nd', 3], ['Public', 4]].map(function (d) { return '<button data-deg="' + d[1] + '" aria-pressed="' + (!ui.group && ui.deg === d[1]) + '">' + d[0] + '</button>'; }).join('');
     var saved = S.saves.indexOf(p.id) >= 0;
     var mineEd = mine ? edited(mine) : '';
@@ -613,9 +648,9 @@
       (S.needsLinks ? '' : '<div class="section" id="sec-links"><div class="row between"><h2>Website and social</h2>' + (ui.linkOpen ? '' : '<button class="pill" data-act="addlink">Add a link</button>') + '</div>' +
         (links ? '' : '<p class="small muted" style="margin:0">Know their website, Instagram or Facebook? Add it for everyone.</p>') + (ui.linkOpen ? linkForm() : '') + '</div>') +
       '<div class="section">' +
-      (isMyBest ? '<label for="quoteIn" class="lbl-t">Why it\'s your best ' + esc(bestLabel(bestKey(p))) + ' ever</label><input id="quoteIn" class="field" maxlength="140" value="' + esc(myBest.quote) + '" placeholder="e.g. The best flat white I have ever had">' : '') +
-      '<button class="btn ghost" data-act="best">' + STAR.replace('class="star"', 'width="16" height="16"') + (isMyBest ? 'Remove from my best ever' : 'Make this my best ' + esc(bestLabel(bestKey(p))) + ' ever') + '</button>' +
-      (p.created_by === myId() ? '<button class="btn ghost" data-act="editplace">Fix place details or category</button>' : '') + '</div>' +
+      (myBest ? '<label for="quoteIn" class="lbl-t">Why it\'s your best ' + esc(bestLabel(myBest.category)) + ' ever</label><input id="quoteIn" class="field" maxlength="140" data-key="' + esc(myBest.category) + '" value="' + esc(myBest.quote) + '" placeholder="e.g. The best flat white I have ever had">' : '') +
+      bestBtns +
+      (p.created_by === myId() ? '<button class="btn ghost" data-act="editplace">Change rating details or category</button>' : '') + '</div>' +
       '</div>';
   }
 
@@ -626,7 +661,7 @@
         : '<div class="' + cls + '">' + inner + '</div>';
     }
     var steps = [
-      ['Rate the places you go', 'Score quality, value and location from 1 (worst) to 10 (best). It goes straight onto your map.', 'add', ''],
+      ['Rate the places you go', 'Score quality, experience, value and location from 1 (worst) to 10 (best). It goes straight onto your map.', 'add', ''],
       ['See what your friends rate', 'The map shows places your friends have scored. Navy pins are their top picks (8.5+). A gold pin means it\'s someone\'s best ever.', 'map', ''],
       ['Widen the circle when you travel', 'Somewhere new? Switch to 1st or 2nd degree for friends of friends, or Public for everyone. Follow kindred spirits who rate like you.', 'friends:discover', '']
     ];
@@ -638,6 +673,8 @@
       [P.tag, 'Tips', 'Avoid the table by the door. Ask for the lunch menu. Loyalty schemes.', 'map', 'Tap any pin, then Add a tip'],
       [P.globe, 'Website and social', 'Add a place\'s website or Instagram, or link your own post.', 'map', 'Tap any pin, then Add a link'],
       [P.near, 'Directions', 'Open in Apple Maps, Google Maps or Waze, or send it on WhatsApp.', 'map', 'Tap any pin, then see Getting there'],
+      [P.friends, 'Friends you approve', 'New requests wait in To be approved until you say yes. Silence a friend to hide their reviews without unfriending.', 'friends:requests', ''],
+      [STARP, 'Best ever', 'Your best pub, EV charger, bakery or guitar shop. It shows as a gold pin on friends\' maps.', 'map', 'Open a place, then Make this my best … ever'],
       [P.friends, 'Groups', 'Family, uni friends, event crew. Filter the map to one group.', 'friends:groups', ''],
       [P.lock, 'Private notes', 'Notes only you can see, like which room to ask for.', 'map', 'Tap any pin, then Your note'],
       [P.filter, 'Filters', 'Slide out the tab on the left of the map to pick categories, trips and whose ratings.', 'map:filters', '']
@@ -719,7 +756,7 @@
   function viewEditPlace() {
     var p = place(ui.place); if (!p) { ui.view = 'map'; return viewMap(); }
     var othersRated = S.reviews.some(function (r) { return r.place_id === p.id && r.user_id !== myId(); });
-    return '<div class="wrap"><div class="topbar"><button class="round" data-act="back" aria-label="Back">' + svg(P.back) + '</button><h2>Place details</h2><span style="width:44px"></span></div>' +
+    return '<div class="wrap"><div class="topbar"><button class="round" data-act="back" aria-label="Back">' + svg(P.back) + '</button><h2>Details and category</h2><span style="width:44px"></span></div>' +
       '<form id="editPlaceForm" class="stack section"><label for="epName" class="lbl-t">Name</label><input id="epName" class="field" required maxlength="120" value="' + esc(p.name) + '">' +
       '<label for="epCat" class="lbl-t">Category</label>' + catSelect('epCat', p.category, p.subcategory) + extraFields('epCat', p) +
       '<label for="epAddr" class="lbl-t">Area or address</label><input id="epAddr" class="field" maxlength="200" value="' + esc(p.address) + '">' +
@@ -750,12 +787,12 @@
     return '<div class="wrap page"><div class="topbar"><button class="round" data-act="back" aria-label="Close">' + svg(P.close) + '</button><h2>' + (r.existing ? 'Edit review' : 'New review') + '</h2><span style="width:44px"></span></div>' +
       '<form id="rateForm" class="stack" style="gap:0;padding-bottom:24px">' +
       '<div class="section"><div class="row" style="gap:12px"><span class="tile ' + catCls(p) + '">' + svg(iconFor(p)) + '</span><span class="pt"><b>' + esc(p.name) + '</b><span class="small muted">' + esc(kindName(p)) + '</span></span>' +
-      (p.created_by === myId() ? '<button type="button" class="pill" data-act="editplace">Fix</button>' : '') + '</div>' +
+      (p.created_by === myId() ? '<button type="button" class="pill" data-act="editplace">Change</button>' : '') + '</div>' +
       '<div class="row between"><label for="visitIn" class="lbl-t">Date of visit</label><input id="visitIn" type="date" class="field" style="width:auto" max="' + todayISO() + '" value="' + esc(r.visited_on) + '"></div>' +
       '<div class="row between"><span class="lbl-t">This trip was</span><span class="row" style="gap:8px"><button type="button" class="pill" data-trip="Work" aria-pressed="' + (r.trip === 'Work') + '">Work</button><button type="button" class="pill" data-trip="Leisure" aria-pressed="' + (r.trip === 'Leisure') + '">Leisure</button></span></div></div>' +
-      '<div class="section"><div class="row between"><span class="lbl-t">Your scores</span><span style="font-weight:600">Overall <span style="font-family:var(--display);font-size:22px">' + ((r.quality + r.value + r.location) / 3).toFixed(1) + '</span></span></div>' +
+      '<div class="section"><div class="row between"><span class="lbl-t">Your scores</span><span style="font-weight:600">Overall <span style="font-family:var(--display);font-size:22px">' + overall(S.needsV6 ? { quality: r.quality, value: r.value, location: r.location } : r).toFixed(1) + '</span></span></div>' +
       '<p class="scalehint">Score each from <b>1 (worst)</b> to <b>10 (best)</b>.</p>' +
-      [['Quality', 'quality', 'How good was it?'], ['Value', 'value', 'Worth the money?'], ['Location', 'location', 'Easy to get to?']].map(function (x) { return '<div class="stack" style="gap:6px"><div class="row between"><span><b>' + x[0] + '</b> <span class="small muted">' + x[2] + '</span></span><b>' + r[x[1]] + '<span class="small muted">/10</span></b></div><div class="dots" role="group" aria-label="' + x[0] + ' score, 1 worst to 10 best">' + dots(x[1]) + '</div><div class="scaleends"><span>1 Worst</span><span>10 Best</span></div></div>'; }).join('') + '</div>' +
+      [['Quality', 'quality', 'How good was it?'], ['Experience', 'experience', 'Service and atmosphere'], ['Value', 'value', 'Worth the money?'], ['Location', 'location', 'Easy to get to?']].filter(function (x) { return x[1] !== 'experience' || !S.needsV6; }).map(function (x) { return '<div class="stack" style="gap:6px"><div class="row between"><span><b>' + x[0] + '</b> <span class="small muted">' + x[2] + '</span></span><b>' + r[x[1]] + '<span class="small muted">/10</span></b></div><div class="dots" role="group" aria-label="' + x[0] + ' score, 1 worst to 10 best">' + dots(x[1]) + '</div><div class="scaleends"><span>1 Worst</span><span>10 Best</span></div></div>'; }).join('') + '</div>' +
       '<div class="section"><label for="revText" class="lbl-t">Your review</label><textarea id="revText" class="field" maxlength="2000" placeholder="What should your friends know? Tips like a better bakery down the road are gold.">' + esc(r.body) + '</textarea>' +
       (S.needsLinks ? '' : '<label for="revLink" class="lbl-t">Link to your post (optional)</label><input id="revLink" class="field" type="text" inputmode="url" autocapitalize="off" spellcheck="false" placeholder="e.g. your Instagram post about it" value="' + esc(r.link || '') + '"><span class="small muted">Shows as "View post" on your review.</span>') +
       '<label for="photoIn" class="lbl-t">Photos (optional)</label><input id="photoIn" type="file" accept="image/*" multiple class="field"><span class="small muted">Menus, rooms, the view, what you ate. Shared with the same people as your review.</span></div>' +
@@ -829,10 +866,10 @@
     return '<div class="wrap" style="padding-top:20px">' +
       '<h1>Friends</h1>' +
       (S.needsUpdate ? '<div class="alert" role="alert" style="margin-top:12px"><b>Database update needed.</b><span>Run supabase/002_public_follow_saves.sql in Supabase to switch on friend requests, following and public reviews.</span></div>' : '') +
-      (reqs.length ? '<div class="section" id="sec-requests"><h2>Friend requests · ' + reqs.length + '</h2><div class="list">' +
-        reqs.map(function (id) { return row(id, 'Added you. Add them back to become friends.', '<button class="btn primary sm" data-friendback="' + id + '">Add</button>'); }).join('') + '</div></div>' : '') +
+      (reqs.length ? '<div class="section approve" id="sec-requests"><h2>To be approved · ' + reqs.length + '</h2><p class="small muted" style="margin:0">These people want to be friends. Nothing is shared until you approve.</p><div class="list">' +
+        reqs.map(function (id) { return row(id, 'Wants to be friends', '<span class="row" style="gap:6px"><button class="btn soft sm" data-decline="' + id + '">Decline</button><button class="btn primary sm" data-friendback="' + id + '">Approve</button></span>'); }).join('') + '</div></div>' : '') +
       '<div class="section" id="sec-friends"><h2>Your friends · ' + S.friends.length + '</h2><div class="list">' +
-      (friends.length ? friends.map(function (id) { var p = S.people[id] || {}; return row(id, [p.nickname ? '“' + p.nickname + '”' : '', p.style, p.home].filter(Boolean).join(' · ') || 'Friend'); }).join('') : '<p class="empty">No friends yet. Invite someone to get started.</p>') +
+      (friends.length ? friends.map(function (id) { var p = S.people[id] || {}; return row(id, [isSilenced(id) ? 'Silenced' : '', p.nickname ? '“' + p.nickname + '”' : '', p.home].filter(Boolean).join(' · ') || 'Friend'); }).join('') : '<p class="empty">No friends yet. Invite someone to get started.</p>') +
       '</div></div>' +
       '<div class="section" id="sec-groups"><h2>Groups</h2><p class="small muted" style="margin:0">Like Family, Uni friends or Event crew. Filter the map to one group. Only you can see your groups.</p><div class="list">' +
       S.groups.map(function (gr) { var n = S.members.filter(function (m) { return m.group_id === gr.id; }).length; return '<button class="item" data-group-edit="' + gr.id + '"><span class="t"><span class="n">' + esc(gr.name) + '</span><span class="small muted">' + n + (n === 1 ? ' person' : ' people') + '</span></span></button>'; }).join('') +
@@ -864,12 +901,15 @@
       iFollow ? '<div class="section"><span class="small muted">' + (p.isPublic ? 'You follow them as a kindred spirit. Their public reviews show in the Kindred spirits filter.' : 'Waiting for them to add you back.') + '</span><button class="btn ghost" data-unfollow="' + id + '">Unfollow</button></div>' :
       '<div class="section"><button class="btn primary" data-follow="' + id + '">Follow</button><span class="small muted">See their public reviews in the Kindred spirits filter. If they follow you back, you become friends.</span></div>';
     return '<div class="wrap"><div class="topbar"><button class="round" data-act="back" aria-label="Back">' + svg(P.back) + '</button><span></span></div>' +
-      '<div class="row" style="gap:16px"><span class="' + avClass(id) + '" style="width:72px;height:72px;border-radius:36px;font-size:22px">' + esc(avText(id)) + '</span><div class="stack" style="gap:4px"><h1 style="font-size:26px">' + esc(nameOf(id)) + '</h1><span class="small muted">' + degLabel(id) + (p.home ? ' · ' + esc(p.home) : '') + '</span>' + (m ? '<span class="small" style="font-weight:600">' + matchText(m) + '</span>' : '') + (p.style ? '<span class="lbl" style="align-self:flex-start">' + esc(p.style) + '</span>' : '') + '</div></div>' +
+      '<div class="row" style="gap:16px"><span class="' + avClass(id) + '" style="width:72px;height:72px;border-radius:36px;font-size:22px">' + esc(avText(id)) + '</span><div class="stack" style="gap:4px"><h1 style="font-size:26px">' + esc(nameOf(id)) + '</h1><span class="small muted">' + degLabel(id) + (p.home ? ' · ' + esc(p.home) : '') + '</span>' + (m ? '<span class="small" style="font-weight:600">' + matchText(m) + '</span>' : '') + '</div></div>' +
       relation +
+      (isFriend ? '<div class="section" id="sec-friendset"><h2>Friend settings</h2>' +
+        (S.needsV6 ? '' : '<button class="setrow" data-act="silence" aria-pressed="' + isSilenced(id) + '"><span class="pt"><b>Silence ' + esc(nameOf(id).split(' ')[0]) + '</b><span class="small muted">' + (isSilenced(id) ? 'Silenced. Their reviews are hidden from your map and searches. You\'re still friends.' : 'Hide their reviews from your map and searches. You stay friends, and their friends still count as your 1st and 2nd degree.') + '</span></span><span class="tog" aria-hidden="true"></span></button>') +
+        (ui.confirm === 'unfriend' ? '<p style="margin:0">Remove ' + esc(nameOf(id)) + ' as a friend?</p><div class="row"><button class="btn soft" data-act="confirm-no" style="flex:1">Keep</button><button class="btn danger" data-act="unfriend-yes" style="flex:1">Remove</button></div>' : '<button class="btn danger" data-act="unfriend">Remove friend</button>') + '</div>' : '') +
       '<div class="section"><h2>' + esc(p.name ? p.name.split(' ')[0] + '\'s' : 'Their') + ' best ever</h2>' +
       (best.length ? '<div class="list">' + best.map(function (b) { var pl = place(b.place_id); return pl ? '<button class="item" data-place="' + pl.id + '"><span class="tile ' + catCls(pl) + '" style="box-shadow:0 0 0 3px var(--fav)">' + svg(iconFor(pl)) + '</span><span class="t"><span class="eyebrow" style="color:var(--fav-text)">Best ' + esc(bestLabel(b.category)) + '</span><span class="n">' + esc(pl.name) + '</span>' + (b.quote ? '<span class="small">“' + esc(b.quote) + '”</span>' : '') + '</span></button>' : ''; }).join('') + '</div>' : '<p class="small muted" style="margin:0">Nothing picked yet.</p>') + '</div>' +
       '<div class="section"><h2>Reviews you can see · ' + revs.length + '</h2>' + (revs.length ? '<div class="list">' + revs.map(function (r) { var pl = place(r.place_id); return pl ? '<button class="item" data-place="' + pl.id + '"><span class="tile ' + catCls(pl) + '">' + svg(iconFor(pl)) + '</span><span class="t"><span class="n">' + esc(pl.name) + '</span><span class="small muted">' + fmtDate(r.visited_on) + ' · ' + r.trip + '</span></span>' + badge(overall(r)) + '</button>' : ''; }).join('') + '</div>' : '<p class="small muted" style="margin:0">None visible yet.</p>') + '</div>' +
-      (isFriend ? '<div class="section">' + (ui.confirm === 'unfriend' ? '<p style="margin:0">Remove ' + esc(nameOf(id)) + ' as a friend?</p><div class="row"><button class="btn soft" data-act="confirm-no" style="flex:1">Keep</button><button class="btn danger" data-act="unfriend-yes" style="flex:1">Remove</button></div>' : '<button class="btn danger" data-act="unfriend">Remove friend</button>') + '</div>' : '') +
+
       '</div>';
   }
 
@@ -887,7 +927,6 @@
       '<label for="meNick" class="lbl-t">Nickname (optional)</label><input id="meNick" class="field" maxlength="30" autocomplete="nickname" placeholder="What friends call you" value="' + esc(me.nickname || '') + '">' +
       '<label for="meHome" class="lbl-t">Home town</label><input id="meHome" class="field" maxlength="60" value="' + esc(me.home) + '" placeholder="e.g. Leeds">' +
       '<label for="meBio" class="lbl-t">About you</label><textarea id="meBio" class="field" style="min-height:72px" maxlength="280" placeholder="e.g. Always on the road for events. Love a good bakery and a cheap EV charge.">' + esc(me.bio) + '</textarea>' +
-      '<span class="lbl-t">How you rate</span><div class="filters">' + STYLES.map(function (s) { return '<button type="button" class="pill" data-style="' + s + '" aria-pressed="' + (me.style === s) + '">' + s + '</button>'; }).join('') + '</div>' +
       '<button class="btn primary" type="submit">Save profile</button></form>' +
       '<div class="section"><h2>Your best ever</h2>' + (best.length ? '<div class="list">' + best.map(function (b) { var pl = place(b.place_id); return pl ? '<button class="item" data-place="' + pl.id + '"><span class="tile ' + catCls(pl) + '" style="box-shadow:0 0 0 3px var(--fav)">' + svg(iconFor(pl)) + '</span><span class="t"><span class="eyebrow" style="color:var(--fav-text)">Best ' + esc(bestLabel(b.category)) + '</span><span class="n">' + esc(pl.name) + '</span>' + (b.quote ? '<span class="small">“' + esc(b.quote) + '”</span>' : '') + '</span></button>' : ''; }).join('') + '</div>' : '<p class="small muted" style="margin:0">Open a place and tap "Make this my best ever". It shows as a gold pin on friends\' maps.</p>') + '</div>' +
       '<div class="section" id="sec-privacy"><h2>Privacy</h2>' +
@@ -956,8 +995,8 @@
     var id = main && S.me ? S.followers.filter(function (x) { return dismissed.indexOf(x) < 0; })[0] : null;
     if (!id) { el.hidden = true; el.innerHTML = ''; return; }
     el.hidden = false;
-    el.innerHTML = '<div class="prompt-card" role="dialog" aria-labelledby="promptText"><div class="row"><span class="' + avClass(id) + '">' + esc(avText(id)) + '</span><p id="promptText" style="margin:0;flex:1"><b>' + esc(nameOf(id)) + '</b> is following you. Would you like to add them as a friend too?</p></div>' +
-      '<div class="row"><button class="btn soft" data-dismiss="' + id + '" style="flex:1">Not now</button><button class="btn primary" data-friendback="' + id + '" style="flex:1">Add as friend</button></div></div>';
+    el.innerHTML = '<div class="prompt-card" role="dialog" aria-labelledby="promptText"><div class="row"><span class="' + avClass(id) + '">' + esc(avText(id)) + '</span><p id="promptText" style="margin:0;flex:1"><b>' + esc(nameOf(id)) + '</b> wants to be friends. Approve?</p></div>' +
+      '<div class="row"><button class="btn soft" data-dismiss="' + id + '" style="flex:1">Later</button><button class="btn soft" data-decline="' + id + '" style="flex:1">Decline</button><button class="btn primary" data-friendback="' + id + '" style="flex:1">Approve</button></div></div>';
   }
   function refreshMapPanel() {
     // Re-render the overlay and list but keep the live map.
@@ -1127,15 +1166,15 @@
     if (notePending) flushNote();
     if (extra) for (var k in extra) ui[k] = extra[k];
     if (view !== 'person') ui.confirm = null;
-    if (view !== 'place') { ui.tipOpen = false; ui.linkOpen = false; }
+    if (view !== 'place') { ui.tipOpen = false; ui.linkOpen = false; ui.bestPick = false; }
     ui.prev = ui.view === view ? ui.prev : ui.view;
     if (view === 'place' && ['rate', 'editplace', 'place', 'person'].indexOf(ui.view) < 0) ui.placeFrom = ui.view;
     ui.view = view; render(); window.scrollTo(0, 0);
   }
   function startRate(pid) {
     var mine = S.reviews.filter(function (r) { return r.place_id === pid && r.user_id === myId(); })[0];
-    ui.rate = mine ? { place_id: pid, quality: mine.quality, value: mine.value, location: mine.location, trip: mine.trip, body: mine.body, visibility: mine.visibility, visited_on: mine.visited_on, link: mine.link || '', existing: mine.id }
-      : { place_id: pid, quality: 7, value: 7, location: 7, trip: 'Leisure', body: '', visibility: 'circle', visited_on: todayISO(), link: '', existing: null };
+    ui.rate = mine ? { place_id: pid, quality: mine.quality, experience: mine.experience || Math.round(overall(mine)), value: mine.value, location: mine.location, trip: mine.trip, body: mine.body, visibility: mine.visibility, visited_on: mine.visited_on, link: mine.link || '', existing: mine.id }
+      : { place_id: pid, quality: 7, experience: 7, value: 7, location: 7, trip: 'Leisure', body: '', visibility: 'circle', visited_on: todayISO(), link: '', existing: null };
     go('rate');
   }
   function syncEmail() { var e = $('emailIn'); if (e) ui.email = e.value.trim(); }
@@ -1161,6 +1200,7 @@
     try {
       var row = { place_id: r.place_id, user_id: myId(), quality: r.quality, value: r.value, location: r.location, trip: r.trip, body: r.body.trim(), visibility: r.visibility, visited_on: r.visited_on || todayISO() };
       if (!S.needsLinks) row.link = lk ? lk.url : '';
+      if (!S.needsV6) row.experience = r.experience;
       var q = await sb.from('reviews').upsert(row, { onConflict: 'place_id,user_id' });
       if (q.error) throw q.error;
       // Anything you rate goes on your map.
@@ -1233,7 +1273,7 @@
     var q = await sb.from('friends').insert({ user_id: myId(), friend_id: id });
     if (q.error && !/duplicate/i.test(q.error.message)) return fail(q.error, 'Could not follow');
     await loadAll(); render();
-    toast(S.friends.indexOf(id) >= 0 ? 'You\'re now friends with ' + nameOf(id) : back ? 'Done' : 'Following ' + nameOf(id) + '. Their public picks are in the Kindred spirits filter.');
+    toast(S.friends.indexOf(id) >= 0 ? (back ? 'Approved. ' : '') + 'You\'re now friends with ' + nameOf(id) : back ? 'Done' : 'Following ' + nameOf(id) + '. Their public picks are in the Kindred spirits filter.');
   }
   // Drag the list at the bottom of the map up and down.
   var drag = null;
@@ -1285,7 +1325,7 @@
       if (!S.session || !S.me) { toast('Log in or create an account to try this'); return; }
       var gt = d.goto.split(':'), hint = d.hint; ui.aboutFirst = false; ui.groupEdit = null; ui.searchMap = false;
       if (gt[0] === 'search' || gt[0] === 'add') { ui.add = { q: '', results: [], form: null, mode: gt[0] === 'search' ? 'browse' : 'rate' }; go('add'); var si2 = $('searchIn'); if (si2) si2.focus(); }
-      else { if (gt[1] === 'filters') ui.drawer = true; if (gt[0] === 'mine') ui.mineFrom = 'me'; go(gt[0]); if (gt[1] && gt[1] !== 'filters') { var sec = $('sec-' + gt[1]); if (sec) sec.scrollIntoView({ block: 'start' }); } }
+      else { if (gt[1] === 'filters') ui.drawer = true; if (gt[0] === 'mine') ui.mineFrom = 'me'; go(gt[0]); if (gt[1] && gt[1] !== 'filters') { var sec = $('sec-' + gt[1]) || $('sec-friends'); if (sec) sec.scrollIntoView({ block: 'start' }); } }
       if (hint) toast(hint);
       return;
     }
@@ -1299,12 +1339,22 @@
       else f[m] = !f[m];
       render(); return;
     }
+    if (d.bestkey) {
+      var bk = d.bestkey, bp = place(ui.place);
+      var cur = S.best.filter(function (b) { return b.user_id === myId() && b.category === bk; })[0];
+      var was = cur && cur.place_id === bp.id;
+      var bq = was ? await sb.from('best').delete().eq('user_id', myId()).eq('category', bk)
+        : await sb.from('best').upsert({ user_id: myId(), category: bk, place_id: bp.id, quote: '' }, { onConflict: 'user_id,category' });
+      if (bq.error) return fail(bq.error);
+      await refresh();
+      toast(was ? 'Removed from your best ' + bestLabel(bk) + ' ever' : 'Your best ' + bestLabel(bk) + ' ever' + (cur ? ', replacing ' + ((place(cur.place_id) || {}).name || 'your old one') : ''));
+      return;
+    }
     if (d.dellink) { var dl = await sb.from('place_links').delete().eq('id', d.dellink); if (dl.error) return fail(dl.error); await refresh(); toast('Link removed'); return; }
     if (d.tab) { ui.searchMap = false; if (d.tab === 'add') { ui.add = { q: '', results: [], form: null, mode: 'rate' }; } ui.groupEdit = null; go(d.tab); if (d.tab === 'map' || d.tab === 'friends') refreshQuietly(); return; }
     if (d.score) { syncRate(); var s = d.score.split(':'); ui.rate[s[0]] = Number(s[1]); render(); return; }
     if (d.trip) { syncRate(); ui.rate.trip = d.trip; render(); return; }
     if (d.vis) { syncRate(); ui.rate.vis = d.vis; ui.rate.visibility = d.vis; render(); return; }
-    if (d.style) { S.me.style = d.style; render(); return; }
     if (d.pref) { var pr = d.pref.split(':'); var val = /degree/.test(pr[0]) ? Number(pr[1]) : pr[1]; var patch = {}; patch[pr[0]] = val; if (await updateProfile(patch, true)) { if (pr[0] === 'see_degree') ui.deg = val; await refresh(); toast('Saved'); } return; }
     if (d.themepick) { await updateProfile({ theme: d.themepick }, true); render(); return; }
     if (d.photo) { var v = $('viewer'); v.innerHTML = '<img src="' + esc(photoUrl(d.photo)) + '" alt="Photo"><button class="round" aria-label="Close photo">' + svg(P.close) + '</button>'; v.hidden = false; return; }
@@ -1315,6 +1365,10 @@
     if (d.follow) { await follow(d.follow); return; }
     if (d.friendback) { await follow(d.friendback, true); return; }
     if (d.unfollow) { var uf = await sb.from('friends').delete().eq('user_id', myId()).eq('friend_id', d.unfollow); if (uf.error) return fail(uf.error); await refresh(); toast('Unfollowed'); return; }
+    if (d.decline) {
+      var dc = await sb.rpc('remove_friend', { other: d.decline }); if (dc.error) return fail(dc.error);
+      var who = nameOf(d.decline); await refresh(); toast('Declined ' + who + '\'s request'); return;
+    }
     if (d.dismiss) { var ds = store('dismissed') || []; ds.push(d.dismiss); store('dismissed', ds); renderPrompt(); return; }
     var a = d.act; if (!a) return;
     if (a === 'drawer') { ui.drawer = !ui.drawer; render(); var dt = document.querySelector(ui.drawer ? '#drawer .dcat-main' : '.drawer-tab'); if (dt) dt.focus(); return; }
@@ -1371,18 +1425,18 @@
     }
     else if (a === 'addtip') { ui.tipOpen = true; render(); var tb = $('tipBody'); if (tb) tb.focus(); }
     else if (a === 'canceltip') { ui.tipOpen = false; render(); }
-    else if (a === 'best') {
-      var p = place(ui.place);
-      var cur = S.best.filter(function (b) { return b.user_id === myId() && b.category === bestKey(p); })[0];
-      var q = cur && cur.place_id === p.id ? await sb.from('best').delete().eq('user_id', myId()).eq('category', bestKey(p))
-        : await sb.from('best').upsert({ user_id: myId(), category: bestKey(p), place_id: p.id, quote: '' }, { onConflict: 'user_id,category' });
-      if (q.error) return fail(q.error);
-      await refresh(); toast(cur && cur.place_id === p.id ? 'Removed from your best ever' : 'Added to your best ever');
-    }
+    else if (a === 'bestpick') { ui.bestPick = !ui.bestPick; render(); }
     else if (a === 'delreview') { ui.confirm = 'delreview'; render(); }
     else if (a === 'droppin') { var c = map ? map.getCenter() : centre(); var cc = store('view'); var lat = cc ? cc[0] : c.lat, lng = cc ? cc[1] : c.lng; ui.add.form = { name: ui.add.q || '', address: '', lat: lat, lng: lng, category: 'eat', subcategory: 'restaurant', osm_id: null, independent: true }; render(); }
     else if (a === 'unpick') { ui.add.form = null; render(); }
     else if (a === 'groupdone') { ui.groupEdit = null; await refresh(); }
+    else if (a === 'silence') {
+      var sid = ui.person, on = isSilenced(sid);
+      var sq2 = on ? await sb.from('silenced').delete().eq('user_id', myId()).eq('target', sid) : await sb.from('silenced').insert({ user_id: myId(), target: sid });
+      if (sq2.error) return fail(sq2.error);
+      if (on) S.silenced = S.silenced.filter(function (x) { return x !== sid; }); else S.silenced.push(sid);
+      render(); toast(on ? nameOf(sid) + ' is no longer silenced' : nameOf(sid) + ' is silenced. Their reviews are hidden from your map.');
+    }
     else if (a === 'unfriend') { ui.confirm = 'unfriend'; render(); }
     else if (a === 'confirm-no') { ui.confirm = null; render(); }
     else if (a === 'unfriend-yes') { var rf = await sb.rpc('remove_friend', { other: ui.person }); if (rf.error) return fail(rf.error); await refresh(); toast('Friend removed'); go('friends'); }
@@ -1404,8 +1458,9 @@
     else if (t.id === 'visitIn') { syncRate(); }
     else if (t.id === 'quoteIn') {
       var p = place(ui.place);
-      var q = await sb.from('best').update({ quote: t.value.trim() }).eq('user_id', myId()).eq('category', bestKey(p));
-      if (q.error) fail(q.error); else { S.best.forEach(function (b) { if (b.user_id === myId() && b.category === bestKey(p)) b.quote = t.value.trim(); }); toast('Saved'); }
+      var qk = t.dataset.key || bestKey(p);
+      var q = await sb.from('best').update({ quote: t.value.trim() }).eq('user_id', myId()).eq('category', qk);
+      if (q.error) fail(q.error); else { S.best.forEach(function (b) { if (b.user_id === myId() && b.category === qk) b.quote = t.value.trim(); }); toast('Saved'); }
     }
     else if (t.classList.contains('gmember')) {
       var g = t.dataset.group, m = t.dataset.member;
@@ -1465,9 +1520,8 @@
     else if (id === 'onboardForm') {
       var first = $('obFirst').value.trim(), last = $('obLast').value.trim(), nick = $('obNick').value.trim();
       var name = (first + ' ' + last).trim(); if (!first) return;
-      var st = (document.querySelector('input[name="obStyle"]:checked') || {}).value || '';
       var shr = Number((document.querySelector('input[name="obShare"]:checked') || {}).value || 2);
-      if (await updateProfile({ name: name, first_name: first, last_name: last, nickname: nick, style: st, share_degree: shr }, true)) { ui.aboutFirst = true; go('about'); processInvite(); }
+      if (await updateProfile({ name: name, first_name: first, last_name: last, nickname: nick, share_degree: shr }, true)) { ui.aboutFirst = true; go('about'); processInvite(); }
     }
     else if (id === 'changePassForm') {
       var p1 = $('chPass').value, p2 = $('chPass2').value;
@@ -1479,7 +1533,7 @@
     }
     else if (id === 'profileForm') {
       var mf = $('meFirst').value.trim(), ml = $('meLast').value.trim();
-      await updateProfile({ name: (mf + ' ' + ml).trim(), first_name: mf, last_name: ml, nickname: $('meNick').value.trim(), home: $('meHome').value.trim(), bio: $('meBio').value.trim(), style: S.me.style || '' });
+      await updateProfile({ name: (mf + ' ' + ml).trim(), first_name: mf, last_name: ml, nickname: $('meNick').value.trim(), home: $('meHome').value.trim(), bio: $('meBio').value.trim() });
       render();
     }
     else if (id === 'editPlaceForm') {

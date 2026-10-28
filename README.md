@@ -14,6 +14,7 @@ Live at: https://quickdraw10.github.io/Vouch/
 - `supabase/003_categories_names_tips.sql`: update 3 (sub-categories, first/last/nickname, general tips). Run it once, after update 2.
 - `supabase/004_links_and_saves.sql`: update 4 (website and social links for places, a link on your review, and every place you've rated added to your map). Run it once, after update 3.
 - `supabase/005_extra_categories.sql`: update 5 (a place can be in up to 3 categories). Run it once, after update 4.
+- `supabase/006_silence_experience.sql`: update 6 (Experience score on reviews, silence a friend). Run it once, after update 5.
 
 Hosting is GitHub Pages. The database, sign-in and photo storage are Supabase. Maps are OpenStreetMap tiles, and place search uses OpenStreetMap Nominatim.
 
