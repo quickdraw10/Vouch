@@ -159,7 +159,7 @@
   function avText(uid) { if (uid === myId()) return initials(S.me.name); var p = S.people[uid]; return p && p.name ? initials(p.name) : '?'; }
   function degLabel(uid) { var d = degreeOf(uid); return d === 0 ? 'You' : d === 1 ? 'Friend' : d === 2 ? '1st degree' : d === 3 ? '2nd degree' : S.following.indexOf(uid) >= 0 ? 'Kindred spirit' : 'Public'; }
   function edited(r) { if (!r.updated_at || !r.created_at) return ''; if (new Date(r.updated_at) - new Date(r.created_at) < 60000) return ''; return 'edited ' + agoText(daysSince(r.updated_at)); }
-  var DEG_SHORT = [['Friends', 1], ['1st', 2], ['2nd', 3], ['Public', 4]];
+  var DEG_SHORT = [['Mine', 0], ['Friends', 1], ['1st', 2], ['2nd', 3], ['Public', 4]];
   function photoUrl(path) { return sb.storage.from('photos').getPublicUrl(path).data.publicUrl; }
 
   // "Your own" theme: four colours the person picks; everything else is mixed from them.
@@ -209,6 +209,7 @@
       var ids = S.members.filter(function (m) { return m.group_id === ui.group; }).map(function (m) { return m.member; });
       return ids.indexOf(r.user_id) >= 0;
     }
+    if (ui.deg === 0) return false;  // Mine: only your own ratings
     return ui.deg >= 4 ? true : degreeOf(r.user_id) <= ui.deg;
   }
   function reviewsFor(pid, all) { return S.reviews.filter(function (r) { return r.place_id === pid && (all || inScope(r)); }); }
@@ -597,13 +598,14 @@
         (st.rs.length ? '<span class="badge' + (st.top ? ' top' : '') + '">' + st.score.toFixed(1) + '</span>' : '') + '</button>';
     }).join('');
     var emptyMsg = !S.places.length ? 'No places yet. Tap Rate to add the first one, or invite friends from the Friends tab.'
+      : !ui.group && ui.deg === 0 ? 'None of your own pins here. Tap Rate to add a place, or move the map.'
       : ui.group === 'friends' ? 'None of your friends have rated places here yet. Widen to 1st, 2nd or Public with the buttons at the top.'
       : ui.group === 'aliens' ? 'No ratings from people you follow here yet. Find people who rate like you on the Friends tab.'
       : 'Nothing matches here. Open the filters on the left, widen to 1st, 2nd or Public, or move the map.';
     return '<div class="mapbox"><div id="map" aria-label="Map"></div>' +
       '<div class="map-top wrap"><div class="row"><button class="searchbar" data-act="search">' + svg(P.search, '', 18) + '<span>Search places</span></button>' +
       '<button class="fab" data-act="near" aria-label="Near me">' + svg(P.near) + '</button><button class="fab" data-act="about" aria-label="About Vouch and how it works">' + svg(P.info) + '</button></div>' +
-      '<div class="row"><div class="seg" role="group" aria-label="Whose ratings: friends, 1st degree, 2nd degree or public">' + segs + '</div></div></div></div>' +
+      '<div class="row"><div class="seg" role="group" aria-label="Whose ratings: only mine, friends, 1st degree, 2nd degree or public">' + segs + '</div></div></div></div>' +
       '<div class="sheet' + (ui.sheetClosed ? ' closed' : '') + '" id="sheet">' +
       '<div class="grab wrap" id="grab" role="button" tabindex="0" aria-expanded="' + !ui.sheetClosed + '" aria-label="' + (ui.sheetClosed ? 'Show the list' : 'Hide the list') + '"><div class="handle"></div>' +
       '<div class="row between" style="align-items:baseline"><h2>Near you</h2><span class="small muted">' + vis.length + (vis.length === 1 ? ' place' : ' places') + ' · ' + (ui.sheetClosed ? 'drag up' : 'drag down to hide') + '</span></div></div>' +
@@ -657,7 +659,7 @@
           var on = myBestKeys.indexOf(k) >= 0;
           return '<button class="btn ' + (on ? 'gold' : 'ghost') + '" data-bestkey="' + k + '" aria-pressed="' + on + '">' + STAR.replace('class="star"', 'width="16" height="16"') + (bkeys.length > 1 ? 'My best ' + esc(bestLabel(k)) + ' ever' : on ? 'Remove from my best ' + esc(bestLabel(k)) + ' ever' : 'Make this my best ' + esc(bestLabel(k)) + ' ever') + '</button>';
         }).join('') + (bkeys.length > 1 ? '<button class="linkbtn" data-act="bestpick">Done</button>' : '');
-    var degSeg = [['Friends', 1], ['+1st', 2], ['+2nd', 3], ['Public', 4]].map(function (d) { return '<button data-deg="' + d[1] + '" aria-pressed="' + (!ui.group && ui.deg === d[1]) + '">' + d[0] + '</button>'; }).join('');
+    var degSeg = [['Mine', 0], ['Friends', 1], ['+1st', 2], ['+2nd', 3], ['Public', 4]].map(function (d) { return '<button data-deg="' + d[1] + '" aria-pressed="' + (!ui.group && ui.deg === d[1]) + '">' + d[0] + '</button>'; }).join('');
     var saved = S.saves.indexOf(p.id) >= 0;
     var mineEd = mine ? edited(mine) : '';
     var myCard = mine ? '<div class="section card mine"><div class="row between"><span class="eyebrow">Your rating</span>' + badge(overall(mine)) + '</div>' +
@@ -673,7 +675,7 @@
         : '<div class="row"><button class="btn ' + (saved ? 'soft' : 'ghost') + '" data-act="save" style="flex:1" aria-pressed="' + saved + '">' + svg(P.bookmark, '', 18) + (saved ? 'On your map' : 'Add to my map') + '</button><button class="btn primary" data-act="rate" style="flex:1">Rate it</button></div>') + '</div>' +
       '<div class="section"><div class="segwide" role="group" aria-label="Whose ratings">' + degSeg + '</div>' +
       '<div class="row" style="gap:16px">' + (rs.length ? '<div class="big' + (st.top ? ' top' : '') + '">' + st.score.toFixed(1) + '</div>' : '<div class="big">–</div>') +
-      '<div class="pt" style="gap:4px"><span style="font-weight:600;font-size:17px">' + (ui.group === 'friends' || (!ui.group && ui.deg === 1) ? 'Friends\' score' : 'Wider circle score') + '</span><span class="small muted">' + (rs.length ? 'From ' + rs.length + (rs.length === 1 ? ' person' : ' people') + (friendsN ? ', ' + friendsN + (friendsN === 1 ? ' friend' : ' friends') : '') : 'No ratings at this level yet. Be the first, or widen to 1st, 2nd or Public.') + '</span></div></div>' +
+      '<div class="pt" style="gap:4px"><span style="font-weight:600;font-size:17px">' + (!ui.group && ui.deg === 0 ? 'Your score' : ui.group === 'friends' || (!ui.group && ui.deg === 1) ? 'Friends\' score' : 'Wider circle score') + '</span><span class="small muted">' + (rs.length ? 'From ' + rs.length + (rs.length === 1 ? ' person' : ' people') + (friendsN ? ', ' + friendsN + (friendsN === 1 ? ' friend' : ' friends') : '') : 'No ratings at this level yet. Be the first, or widen to 1st, 2nd or Public.') + '</span></div></div>' +
       (rs.length ? bars + '<span class="small muted">Scores out of 10. 10 is best, 1 is worst.</span>' : '') + '</div>' +
       myCard +
       (rs.length ? '<div class="section"><h2>What people said</h2><div class="list">' + said + '</div></div>' : '') +
@@ -698,7 +700,7 @@
     }
     var steps = [
       ['Rate the places you go', 'Score quality, experience, value and location from 1 (worst) to 10 (best). It goes straight onto your map.', 'add', ''],
-      ['See what your friends rate', 'The map shows places your friends have scored. Navy pins are their top picks (8.5+). A gold pin means it\'s someone\'s best ever.', 'map', ''],
+      ['See what your friends rate', 'The map shows places your friends have scored. Navy pins are their top picks (8.5+). A gold pin means it\'s someone\'s best ever. Tap Mine to see only your own pins.', 'map', ''],
       ['Widen the circle when you travel', 'Somewhere new? Switch to 1st or 2nd degree for friends of friends, or Public for everyone. Follow kindred spirits who rate like you.', 'friends:discover', '']
     ];
     var things = [
