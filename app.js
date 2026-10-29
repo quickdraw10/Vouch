@@ -589,7 +589,7 @@
       '<h3 class="dh">Only show</h3><div class="filters"><button class="pill" data-act="indie" aria-pressed="' + ui.indie + '">Independent businesses</button></div>' +
       '<h3 class="dh">Whose ratings</h3>' + groupSelHtml() +
       '</div></aside></div>';
-    var segs = DEG_SHORT.map(function (d) { return '<button data-deg="' + d[1] + '" aria-pressed="' + (!ui.group && ui.deg === d[1]) + '">' + d[0] + '</button>'; }).join('');
+    var segs = DEG_SHORT.map(function (d) { return '<button data-deg="' + d[1] + '"' + (!ui.group && ui.deg >= d[1] ? ' class="in"' : '') + ' aria-pressed="' + (!ui.group && ui.deg === d[1]) + '">' + d[0] + '</button>'; }).join('');
     var list = vis.slice(0, 40).map(function (o) {
       var p = o.p, st = stats(p.id);
       var friendsN = st.rs.filter(function (r) { return degreeOf(r.user_id) === 1; }).length;
@@ -659,7 +659,7 @@
           var on = myBestKeys.indexOf(k) >= 0;
           return '<button class="btn ' + (on ? 'gold' : 'ghost') + '" data-bestkey="' + k + '" aria-pressed="' + on + '">' + STAR.replace('class="star"', 'width="16" height="16"') + (bkeys.length > 1 ? 'My best ' + esc(bestLabel(k)) + ' ever' : on ? 'Remove from my best ' + esc(bestLabel(k)) + ' ever' : 'Make this my best ' + esc(bestLabel(k)) + ' ever') + '</button>';
         }).join('') + (bkeys.length > 1 ? '<button class="linkbtn" data-act="bestpick">Done</button>' : '');
-    var degSeg = [['Mine', 0], ['Friends', 1], ['+1st', 2], ['+2nd', 3], ['Public', 4]].map(function (d) { return '<button data-deg="' + d[1] + '" aria-pressed="' + (!ui.group && ui.deg === d[1]) + '">' + d[0] + '</button>'; }).join('');
+    var degSeg = [['Mine', 0], ['Friends', 1], ['+1st', 2], ['+2nd', 3], ['Public', 4]].map(function (d) { return '<button data-deg="' + d[1] + '"' + (!ui.group && ui.deg >= d[1] ? ' class="in"' : '') + ' aria-pressed="' + (!ui.group && ui.deg === d[1]) + '">' + d[0] + '</button>'; }).join('');
     var saved = S.saves.indexOf(p.id) >= 0;
     var mineEd = mine ? edited(mine) : '';
     var myCard = mine ? '<div class="section card mine"><div class="row between"><span class="eyebrow">Your rating</span>' + badge(overall(mine)) + '</div>' +
@@ -1011,7 +1011,7 @@
     var me = S.me;
     var mine = S.reviews.filter(function (r) { return r.user_id === me.id; }).sort(function (a, b) { return a.visited_on < b.visited_on ? 1 : -1; });
     var best = S.best.filter(function (b) { return b.user_id === me.id; });
-    function opt(field, val, label) { return '<button data-pref="' + field + ':' + val + '" aria-pressed="' + (String(me[field]) === String(val)) + '">' + label + '</button>'; }
+    function opt(field, val, label) { var inr = /degree/.test(field) && Number(me[field]) >= Number(val); return '<button data-pref="' + field + ':' + val + '"' + (inr ? ' class="in"' : '') + ' aria-pressed="' + (String(me[field]) === String(val)) + '">' + label + '</button>'; }
     return '<div class="wrap" style="padding-top:20px">' +
       '<div class="section"><div class="row" style="gap:14px"><span class="av me" style="width:64px;height:64px;border-radius:32px;font-size:20px">' + esc(initials(me.name)) + '</span><div class="stack" style="gap:2px;min-width:0"><h1 style="font-size:26px">' + esc(me.name || 'You') + '</h1><span class="small muted">' + esc(S.session.user.email || '') + '</span></div></div></div>' +
       (S.isAdmin ? '<button class="aboutrow mine-link" data-act="inbox">' + svg(P.tag, '', 20) + '<span><b>Suggestions inbox</b><span class="small muted">' + (inboxCounts().new ? inboxCounts().new + ' new to review' : 'Only you can see this') + '</span></span>' + (inboxCounts().new ? '<span class="dot static">' + inboxCounts().new + '</span>' : '') + svg(P.chevR, '', 16) + '</button>' : '') +

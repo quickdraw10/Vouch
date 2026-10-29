@@ -475,6 +475,18 @@ h1 { font-size: 32px; }
 html, body { height: 100%; overflow: hidden; overscroll-behavior: none; }
 .app { position: fixed; top: 0; bottom: 0; left: 0; right: 0; min-height: 0; overflow-y: auto; overflow-x: hidden; -webkit-overflow-scrolling: touch; overscroll-behavior-y: contain;
   padding-bottom: calc(var(--tabs-h) + 24px); }
+
+/* Ratings circles add up left to right: everything up to your choice is highlighted as one bar */
+.seg { gap: 0; }
+.seg button.in { background: var(--primary); color: var(--on-primary); border-radius: 0; }
+.seg button.in:first-child { border-top-left-radius: 9px; border-bottom-left-radius: 9px; }
+.seg button.in[aria-pressed="true"] { border-top-right-radius: 9px; border-bottom-right-radius: 9px; }
+.seg button.in + button.in { box-shadow: inset 1px 0 0 color-mix(in srgb, var(--on-primary) 22%, transparent); }
+.segwide { gap: 0; }
+.segwide button.in { background: var(--primary); color: var(--on-primary); border-radius: 0; box-shadow: none; }
+.segwide button.in:first-child { border-top-left-radius: 11px; border-bottom-left-radius: 11px; }
+.segwide button.in[aria-pressed="true"] { border-top-right-radius: 11px; border-bottom-right-radius: 11px; font-weight: 700; }
+.segwide button.in + button.in { box-shadow: inset 1px 0 0 color-mix(in srgb, var(--on-primary) 22%, transparent); }
 </style>
 </head>
 <body>
