@@ -699,8 +699,8 @@
         : '<div class="' + cls + '">' + inner + '</div>';
     }
     var steps = [
-      ['Rate the places you go', 'Score quality, experience, value and location from 1 (worst) to 10 (best). It goes straight onto your map.', 'add', ''],
-      ['See what your friends rate', 'The map shows places your friends have scored. Navy pins are their top picks (8.5+). A gold pin means it\'s someone\'s best ever. Tap Mine to see only your own pins.', 'map', ''],
+      ['Pin the places you don\'t want to forget', 'Rate a place or save it and it goes straight onto your map. Score quality, experience, value and location from 1 (worst) to 10 (best). Tap Mine to see just your own pins.', 'add', ''],
+      ['Build a network of friends doing the same', 'Share your maps with friends. Every rating comes from someone you know who can vouch for it, so there are no bots, fake accounts or paid-for reviews. Navy pins are friends\' top picks (8.5+); a gold pin is someone\'s best ever.', 'friends:invite', ''],
       ['Widen the circle when you travel', 'Somewhere new? Switch to 1st or 2nd degree for friends of friends, or Public for everyone. Follow kindred spirits who rate like you.', 'friends:discover', '']
     ];
     var things = [
@@ -713,14 +713,14 @@
       [P.near, 'Directions', 'Open in Apple Maps, Google Maps or Waze, or send it on WhatsApp.', 'map', 'Tap any pin, then see Getting there'],
       [P.friends, 'Friends you approve', 'New requests wait in To be approved until you say yes. Silence a friend to hide their reviews without unfriending.', 'friends:requests', ''],
       [STARP, 'Best ever', 'Your best pub, EV charger, bakery or guitar shop. It shows as a gold pin on friends\' maps.', 'map', 'Open a place, then Make this my best … ever'],
-      [P.friends, 'Groups', 'Family, uni friends, event crew. Filter the map to one group.', 'friends:groups', ''],
+      [P.friends, 'Groups', 'Work, family, football mates, book club. Filter the map to one group.', 'friends:groups', ''],
       [P.lock, 'Private notes', 'Notes only you can see, like which room to ask for.', 'map', 'Tap any pin, then Your note'],
-      [P.filter, 'Filters', 'Slide out the tab on the left of the map to pick categories, trips and whose ratings.', 'map:filters', '']
+      [P.filter, 'Filters', 'Slide out the tab on the left of the map: bakery, EV charger, pub… or independents only. Local businesses first, where we can.', 'map:filters', '']
     ];
     var back = ui.aboutFirst ? '<span style="width:44px"></span>' : '<button class="round onnavy" data-act="aboutback" aria-label="Back">' + svg(P.back) + '</button>';
     return '<div class="about">' +
       '<div class="authhero"><div class="wrap"><div class="topbar">' + back + '<span class="logo light"><svg viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="9" fill="#0B1A36"/><path d="M9.5 16.5l4.5 4.5 8.5-10" fill="none" stroke="#D4A017" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg>Vouch</span><span style="width:44px"></span></div>' +
-      '<div class="about-hero"><h1>Places, rated by people you trust.</h1><p>Star ratings from strangers can\'t tell you if a place suits you. Vouch shows what your friends really think, so a 9 means something.</p></div></div></div>' +
+      '<div class="about-hero"><h1>Your map of places worth remembering.</h1><p>The pub you passed and need to go back to. The café that\'s a gem on a route you know well. The fuel stop just off the A1 that beats motorway-services prices. Pin them, rate them, and see the places your friends can vouch for.</p></div></div></div>' +
       '<div class="wrap about-body">' +
       (signed ? '' : '<p class="small muted about-note">' + svg(P.lock, '', 14) + 'Log in or create an account to try these. Read all about them first.</p>') +
       '<section><h2>How it works</h2><ol class="steps">' + steps.map(function (st, i) { return '<li>' + act(st[2], st[3], '<span class="stepn">' + (i + 1) + '</span><span class="pt"><b>' + st[0] + '</b><span class="muted">' + st[1] + '</span></span>', 'steprow') + '</li>'; }).join('') + '</ol></section>' +
