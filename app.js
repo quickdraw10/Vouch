@@ -668,7 +668,8 @@
     var dist = ui.here ? ' · ' + fmtMiles(miles(ui.here, p)) + ' away' : '';
     return '<div class="wrap page">' +
       '<div class="topbar"><button class="round" data-act="back" aria-label="Back">' + svg(P.back) + '</button><button class="round" data-act="share" aria-label="Share this place">' + svg(P.share) + '</button></div>' +
-      (photos.length ? '<div class="photos hero">' + photos.slice(0, 4).map(function (ph) { return '<button class="photo" data-photo="' + esc(ph.path) + '" aria-label="View photo by ' + esc(nameOf(ph.user_id)) + '"><img src="' + esc(photoUrl(ph.path)) + '" alt="" loading="lazy"></button>'; }).join('') + '</div>' : '') +
+      (photos.length ? (function () { var tile = function (ph) { return '<button class="photo" data-photo="' + esc(ph.path) + '" aria-label="View photo by ' + esc(nameOf(ph.user_id)) + '"><img src="' + esc(photoUrl(ph.path)) + '" alt="" loading="lazy"></button>'; };
+        return '<div class="photos hero">' + tile(photos[0]) + '</div>' + (photos.length > 1 ? '<div class="pstrip" aria-label="' + photos.length + ' photos">' + photos.slice(1).map(tile).join('') + '</div>' : ''); })() : '') +
       '<div class="section titlecard">' + titleHead(p) + (p.address ? '<span class="muted">' + esc(p.address) + dist + '</span>' : '') + favs +
       (links ? '<div class="linkchips">' + links + '</div>' : '') +
       (mine ? '<span class="onmap">' + svg(P.bookmark, '', 15) + 'On your map</span>'
@@ -771,6 +772,19 @@
       (list.length ? '<span class="small muted">Average ' + mean(list.map(function (o) { return overall(o.r); })).toFixed(1) + '</span>' : '') + '</div>';
     return head + (rows ? '<div class="list">' + rows + '</div>'
       : '<p class="empty">' + (all ? 'Nothing matches. Try another word, or <button class="linkbtn inline" data-mact="clear">clear the filters</button>.' : 'No reviews yet. Tap Rate to add your first.') + '</p>');
+  }
+  var MAX_PHOTOS = 10;
+  function photoPicker(pid) {
+    var mineP = photosFor(pid).filter(function (ph) { return ph.user_id === myId(); });
+    var files = ui.files || [];
+    var total = mineP.length + files.length;
+    var tiles = mineP.map(function (ph) { return '<span class="pthumb"><img src="' + esc(photoUrl(ph.path)) + '" alt="Your photo"><button type="button" class="px" data-delphoto="' + ph.id + '" aria-label="Delete this photo">' + svg(P.close, '', 12) + '</button></span>'; }).join('') +
+      files.map(function (f, i) { return '<span class="pthumb new"><img src="' + esc(ui.fileUrls[i]) + '" alt="New photo ' + (i + 1) + '"><button type="button" class="px" data-unfile="' + i + '" aria-label="Remove this photo">' + svg(P.close, '', 12) + '</button></span>'; }).join('') +
+      (total < MAX_PHOTOS ? '<label class="padd" for="photoIn">' + svg(P.camera, '', 22) + '<span>' + (total ? 'Add more' : 'Add photos') + '</span></label>' : '');
+    return '<div class="row between"><span class="lbl-t">Photos (optional)</span><span class="small muted">' + total + ' of ' + MAX_PHOTOS + '</span></div>' +
+      '<input id="photoIn" class="vh" type="file" accept="image/*" multiple>' +
+      '<div class="pgrid">' + tiles + '</div>' +
+      '<span class="small muted">Pick several at once, or add more as you go. Menus, rooms, the view, what you ate. Shared with the same people as your review.</span>';
   }
   function viewMine() {
     var f = ui.mf, off = mineOff();
@@ -889,10 +903,11 @@
       [['Quality', 'quality', 'How good was it?'], ['Experience', 'experience', 'Service and atmosphere'], ['Value', 'value', 'Worth the money?'], ['Location', 'location', 'Easy to get to?']].filter(function (x) { return x[1] !== 'experience' || !S.needsV6; }).map(function (x) { return '<div class="stack" style="gap:6px"><div class="row between"><span><b>' + x[0] + '</b> <span class="small muted">' + x[2] + '</span></span><b>' + r[x[1]] + '<span class="small muted">/10</span></b></div><div class="dots" role="group" aria-label="' + x[0] + ' score, 1 worst to 10 best">' + dots(x[1]) + '</div><div class="scaleends"><span>1 Worst</span><span>10 Best</span></div></div>'; }).join('') + '</div>' +
       '<div class="section"><label for="revText" class="lbl-t">Your review</label><textarea id="revText" class="field" maxlength="2000" placeholder="What should your friends know? Tips like a better bakery down the road are gold.">' + esc(r.body) + '</textarea>' +
       (S.needsLinks ? '' : '<label for="revLink" class="lbl-t">Link to your post (optional)</label><input id="revLink" class="field" type="text" inputmode="url" autocapitalize="off" spellcheck="false" placeholder="e.g. your Instagram post about it" value="' + esc(r.link || '') + '"><span class="small muted">Shows as "View post" on your review.</span>') +
-      '<label for="photoIn" class="lbl-t">Photos (optional)</label><input id="photoIn" type="file" accept="image/*" multiple class="field"><span class="small muted">Menus, rooms, the view, what you ate. Shared with the same people as your review.</span></div>' +
+      photoPicker(r.place_id) +
+      '</div>' +
       '<div class="section"><span class="lbl-t">Who sees this review</span><div class="segwide"><button type="button" data-vis="circle" aria-pressed="' + (r.visibility === 'circle') + '">My circle</button><button type="button" data-vis="me" aria-pressed="' + (r.visibility === 'me') + '">Only me</button></div>' +
       '<span class="small muted">' + (r.visibility === 'circle' ? 'Friends, and friends of friends up to your privacy setting.' : 'Kept private, like a notebook.') + '</span></div>' +
-      '<button class="btn primary" type="submit" style="margin-top:18px"' + (ui.busy ? ' disabled' : '') + '>' + (ui.busy ? 'Saving…' : r.existing ? 'Save changes' : 'Post review') + '</button>' +
+      '<button class="btn primary" type="submit" style="margin-top:18px"' + (ui.busy ? ' disabled' : '') + '>' + (ui.busy ? (ui.busyText || 'Saving…') : r.existing ? 'Save changes' : 'Post review') + '</button>' +
       (r.existing ? '' : '<span class="small muted" style="text-align:center;margin-top:8px">It\'s added to your map automatically.</span>') +
       (r.existing ? (ui.confirm === 'delreview'
         ? '<div class="stack card" style="margin-top:28px"><b>Delete your rating for ' + esc(p.name) + '?</b>' + (p.created_by === myId() && !S.reviews.some(function (x) { return x.place_id === p.id && x.user_id !== myId(); }) ? '<span class="small muted">You added this place and nobody else has rated it, so it will be removed from Vouch too.</span>' : '') + '<div class="row"><button class="btn soft" type="button" data-act="confirm-no" style="flex:1">Keep it</button><button class="btn danger" type="button" data-act="delreview-yes" style="flex:1">Delete</button></div></div>'
@@ -1271,8 +1286,10 @@
     if (view === 'place' && ['rate', 'editplace', 'place', 'person'].indexOf(ui.view) < 0) ui.placeFrom = ui.view;
     ui.view = view; render(); toTop();
   }
+  function clearFiles() { (ui.fileUrls || []).forEach(function (u) { try { URL.revokeObjectURL(u); } catch (e) {} }); ui.files = []; ui.fileUrls = []; }
   function startRate(pid) {
     var mine = S.reviews.filter(function (r) { return r.place_id === pid && r.user_id === myId(); })[0];
+    clearFiles();
     ui.rate = mine ? { place_id: pid, quality: mine.quality, experience: mine.experience || Math.round(overall(mine)), value: mine.value, location: mine.location, trip: mine.trip, body: mine.body, visibility: mine.visibility, visited_on: mine.visited_on, link: mine.link || '', existing: mine.id }
       : { place_id: pid, quality: 7, experience: 7, value: 7, location: 7, trip: 'Leisure', body: '', visibility: 'circle', visited_on: todayISO(), link: '', existing: null };
     go('rate');
@@ -1310,6 +1327,7 @@
       }
       var files = ui.files || [];
       for (var i = 0; i < files.length; i++) {
+        ui.busyText = 'Uploading photo ' + (i + 1) + ' of ' + files.length + '…'; render();
         var blob = await resizeImage(files[i]);
         var path = myId() + '/' + uuid() + '.jpg';
         var up = await sb.storage.from('photos').upload(path, blob, { contentType: 'image/jpeg', upsert: false });
@@ -1317,9 +1335,9 @@
         var ins = await sb.from('photos').insert({ place_id: r.place_id, user_id: myId(), path: path });
         if (ins.error) throw ins.error;
       }
-      ui.files = [];
+      clearFiles(); ui.busyText = '';
       await loadAll(); ui.busy = false; toast(r.existing ? 'Review updated' : 'Review posted and added to your map'); go('place', { place: r.place_id });
-    } catch (e) { ui.busy = false; render(); fail(e, 'Could not save'); }
+    } catch (e) { ui.busy = false; ui.busyText = ''; render(); fail(e, 'Could not save'); }
   }
 
   async function updateProfile(patch, quiet) {
@@ -1459,6 +1477,14 @@
       toast(st2 === 'approved' ? 'Approved' : st2 === 'declined' ? 'Declined' : st2 === 'done' ? 'Marked done' : 'Moved back to New');
       return;
     }
+    if (d.unfile != null) { syncRate(); var ui2 = Number(d.unfile); try { URL.revokeObjectURL(ui.fileUrls[ui2]); } catch (e) {} ui.files.splice(ui2, 1); ui.fileUrls.splice(ui2, 1); render(); return; }
+    if (d.delphoto) {
+      syncRate();
+      var ph = S.photos.filter(function (x) { return x.id === d.delphoto; })[0]; if (!ph) return;
+      var dq = await sb.from('photos').delete().eq('id', ph.id); if (dq.error) return fail(dq.error, 'Could not delete the photo');
+      try { await sb.storage.from('photos').remove([ph.path]); } catch (e) {}
+      S.photos = S.photos.filter(function (x) { return x.id !== ph.id; }); render(); toast('Photo deleted'); return;
+    }
     if (d.dellink) { var dl = await sb.from('place_links').delete().eq('id', d.dellink); if (dl.error) return fail(dl.error); await refresh(); toast('Link removed'); return; }
     if (d.tab) { ui.searchMap = false; if (d.tab === 'add') { ui.add = { q: '', results: [], form: null, mode: 'rate' }; } ui.groupEdit = null; go(d.tab); if (d.tab === 'map' || d.tab === 'friends') refreshQuietly(); return; }
     if (d.score) { syncRate(); var s = d.score.split(':'); ui.rate[s[0]] = Number(s[1]); render(); return; }
@@ -1575,7 +1601,18 @@
     if (t.dataset && t.dataset.ccol) { var cd2 = customColours(); cd2[t.dataset.ccol] = t.value; ui.customDraft = null; await saveCustom(cd2); render(); return; }
     if (t.id === 'groupSel') { ui.group = t.value; render(); }
     else if (t.id === 'mineSort') { ui.mf.sort = t.value; var ml = $('mineList'); if (ml) ml.innerHTML = mineListHtml(); }
-    else if (t.id === 'photoIn') { ui.files = Array.prototype.slice.call(t.files || [], 0, 6); if (ui.files.length) toast(ui.files.length + (ui.files.length === 1 ? ' photo' : ' photos') + ' ready to upload'); }
+    else if (t.id === 'photoIn') {
+      syncRate();
+      var have = photosFor(ui.rate.place_id).filter(function (ph) { return ph.user_id === myId(); }).length + (ui.files || []).length;
+      var picked = Array.prototype.slice.call(t.files || []);
+      var room = Math.max(0, MAX_PHOTOS - have), add = picked.slice(0, room);
+      ui.files = (ui.files || []).concat(add);
+      ui.fileUrls = (ui.fileUrls || []).concat(add.map(function (f) { return URL.createObjectURL(f); }));
+      t.value = '';
+      render();
+      if (add.length) toast(add.length + (add.length === 1 ? ' photo' : ' photos') + ' added' + (picked.length > add.length ? '. ' + MAX_PHOTOS + ' is the most per review.' : ''));
+      else if (picked.length) toast(MAX_PHOTOS + ' photos is the most per review');
+    }
     else if (t.id === 'visitIn') { syncRate(); }
     else if (t.id === 'quoteIn') {
       var p = place(ui.place);

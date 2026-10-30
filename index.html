@@ -487,6 +487,21 @@ html, body { height: 100%; overflow: hidden; overscroll-behavior: none; }
 .segwide button.in:first-child { border-top-left-radius: 11px; border-bottom-left-radius: 11px; }
 .segwide button.in[aria-pressed="true"] { border-top-right-radius: 11px; border-bottom-right-radius: 11px; font-weight: 700; }
 .segwide button.in + button.in { box-shadow: inset 1px 0 0 color-mix(in srgb, var(--on-primary) 22%, transparent); }
+
+/* Photos on a review: thumbnails, remove, add more */
+.vh { position: absolute; width: 1px; height: 1px; opacity: 0; overflow: hidden; pointer-events: none; }
+.pgrid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+.pthumb { position: relative; aspect-ratio: 1; border-radius: 14px; overflow: hidden; background: var(--surface); }
+.pthumb img { width: 100%; height: 100%; object-fit: cover; }
+.pthumb.new { box-shadow: inset 0 0 0 2px var(--trim); }
+.pthumb.new img { opacity: 0.92; }
+.px { position: absolute; top: 4px; right: 4px; width: 28px; height: 28px; border-radius: 14px; border: 0; background: rgba(0,0,0,0.6); color: #FFFFFF; display: flex; align-items: center; justify-content: center; padding: 0; }
+.padd { aspect-ratio: 1; border-radius: 14px; border: 1.5px dashed var(--text2); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; color: var(--text2); font-size: 12px; font-weight: 600; cursor: pointer; text-align: center; }
+.padd:focus-within, .padd:hover { color: var(--link); border-color: var(--link); }
+
+.pstrip { display: flex; gap: 8px; overflow-x: auto; margin-top: 8px; padding-bottom: 2px; scroll-snap-type: x mandatory; scrollbar-width: none; }
+.pstrip::-webkit-scrollbar { display: none; }
+.pstrip .photo { flex: 0 0 96px; height: 96px; aspect-ratio: auto; scroll-snap-align: start; }
 </style>
 </head>
 <body>
