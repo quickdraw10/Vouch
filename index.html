@@ -502,6 +502,12 @@ html, body { height: 100%; overflow: hidden; overscroll-behavior: none; }
 .pstrip { display: flex; gap: 8px; overflow-x: auto; margin-top: 8px; padding-bottom: 2px; scroll-snap-type: x mandatory; scrollbar-width: none; }
 .pstrip::-webkit-scrollbar { display: none; }
 .pstrip .photo { flex: 0 0 96px; height: 96px; aspect-ratio: auto; scroll-snap-align: start; }
+
+/* Places to visit */
+.pin.tovisit { background: var(--card); color: var(--text); box-shadow: inset 0 0 0 2px var(--trim), 0 4px 12px var(--shadow); border-style: dashed; }
+.pin.tovisit .tvb { width: 14px; height: 14px; color: var(--trim); }
+.tvtile { background: color-mix(in srgb, var(--trim) 20%, var(--card)); color: color-mix(in srgb, var(--trim) 70%, var(--text)); }
+.tvmark { width: 32px; height: 32px; border-radius: 16px; display: flex; align-items: center; justify-content: center; background: color-mix(in srgb, var(--trim) 18%, var(--card)); color: color-mix(in srgb, var(--trim) 70%, var(--text)); flex: 0 0 auto; }
 </style>
 </head>
 <body>

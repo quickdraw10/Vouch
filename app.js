@@ -120,7 +120,7 @@
     mf: null, rate: null, add: null, email: '', mode: 'signin', recovery: false, busy: false, confirm: null, here: null, sheetClosed: false
   };
   CATS.forEach(function (c) { ui.cats[c[0]] = true; });
-  function resetMineFilters(keepQ) { var q = keepQ && ui.mf ? ui.mf.q : ''; ui.mf = { q: q, cats: {}, subs: {}, work: true, leisure: true, indie: false, only: false, sort: 'new', open: ui.mf ? ui.mf.open : false }; CATS.forEach(function (c) { ui.mf.cats[c[0]] = true; }); }
+  function resetMineFilters(keepQ) { var q = keepQ && ui.mf ? ui.mf.q : ''; ui.mf = { q: q, cats: {}, subs: {}, work: true, leisure: true, indie: false, only: false, sort: 'new', open: ui.mf ? ui.mf.open : false, tab: ui.mf ? ui.mf.tab : 'rated' }; CATS.forEach(function (c) { ui.mf.cats[c[0]] = true; }); }
   resetMineFilters();
   var map = null, markerLayer = null, meMarker = null, tileLayer = null;
 
@@ -222,8 +222,14 @@
   function tipsFor(pid) { return S.tips.filter(function (t) { return t.place_id === pid; }); }
   function photosFor(pid) { return S.photos.filter(function (p) { return p.place_id === pid; }).sort(function (a, b) { return a.created_at < b.created_at ? 1 : -1; }); }
   function centre() { if (ui.here) return ui.here; if (map) { var c = map.getCenter(); return { lat: c.lat, lng: c.lng }; } var v = store('view'); return v ? { lat: v[0], lng: v[1] } : { lat: 51.5074, lng: -0.1278 }; }
+  // A place you've pinned but not rated yet is on your "to visit" list.
+  function isToVisit(pid) { return S.saves.indexOf(pid) >= 0 && !S.reviews.some(function (r) { return r.place_id === pid && r.user_id === myId(); }); }
+  function toVisitPlaces() { return S.saves.map(place).filter(function (p) { return p && isToVisit(p.id); }); }
   function visiblePlaces() {
     return S.places.filter(function (p) {
+      var tv = isToVisit(p.id);
+      if (ui.tovisitOff && tv) return false;
+      if (ui.onlyToVisit && !tv) return false;
       if (!catOn(p, ui.cats, ui.subs)) return false;
       if (ui.indie && !p.independent) return false;
       var rs = reviewsFor(p.id), saved = S.saves.indexOf(p.id) >= 0;
@@ -465,8 +471,10 @@
     var fav = favsFor(p.id).length > 0;
     var tip = tipsFor(p.id).length > 0;
     var saved = S.saves.indexOf(p.id) >= 0;
+    var tv = isToVisit(p.id);
+    if (tv && !st.rs.length) return '<div class="pin tovisit" role="button" tabindex="0" aria-label="' + esc(p.name) + ', on your places to visit"><span class="ic ' + catCls(p) + '">' + svg(iconFor(p)) + '</span>' + svg(P.bookmark, 'tvb') + 'To visit</div>';
     var cls = 'pin' + (st.top ? ' top' : '') + (st.wide ? ' wide' : '') + (!st.rs.length ? ' new' : '') + (fav ? ' fav' : '') + (saved ? ' saved' : '');
-    return '<div class="' + cls + '" role="button" tabindex="0" aria-label="' + esc(p.name + (st.rs.length ? ', rated ' + st.score.toFixed(1) : ', not rated yet') + (fav ? ', a favourite' : '')) + '">' +
+    return '<div class="' + cls + '" role="button" tabindex="0" aria-label="' + esc(p.name + (st.rs.length ? ', rated ' + st.score.toFixed(1) : ', not rated yet') + (fav ? ', a favourite' : '') + (tv ? ', on your places to visit' : '')) + '">' +
       '<span class="ic ' + catCls(p) + '">' + svg(iconFor(p)) + '</span>' + STAR + (st.rs.length ? st.score.toFixed(1) : 'New') + (tip ? svg(P.tag, 'tag') : '') + (saved ? svg(P.bookmark, 'tag') : '') + '</div>';
   }
 
@@ -575,11 +583,13 @@
     if (ui.searchMap) return viewMapSearch();
     var c = centre();
     var vis = visiblePlaces().map(function (p) { return { p: p, d: miles(c, p) }; }).sort(function (a, b) { return a.d - b.d; });
-    var nOff = CATS.filter(function (k) { return !ui.cats[k[0]]; }).length + Object.keys(ui.subs).filter(function (k) { return ui.subs[k] === false; }).length + (ui.indie ? 1 : 0) + (!ui.work || !ui.leisure ? 1 : 0) + (ui.group ? 1 : 0);
+    var nOff = CATS.filter(function (k) { return !ui.cats[k[0]]; }).length + Object.keys(ui.subs).filter(function (k) { return ui.subs[k] === false; }).length + (ui.indie ? 1 : 0) + (!ui.work || !ui.leisure ? 1 : 0) + (ui.group ? 1 : 0) + (ui.tovisitOff || ui.onlyToVisit ? 1 : 0);
     var drawer = '<div class="drawerwrap"><button class="drawer-tab' + (ui.drawer ? ' open' : '') + '" data-act="drawer" aria-expanded="' + ui.drawer + '" aria-controls="drawer" aria-label="' + (ui.drawer ? 'Hide filters' : 'Show filters') + '">' + svg(P.filter, '', 18) + (nOff ? '<span class="dot">' + nOff + '</span>' : '') + svg(ui.drawer ? P.chevL : P.chevR, '', 14) + '</button>' +
       '<aside class="drawer' + (ui.drawer ? ' open' : '') + '" id="drawer" aria-label="Filters"' + (ui.drawer ? '' : ' inert') + '><div class="drawer-in">' +
-      '<button class="aboutrow mine-link" data-act="mine" style="margin:0 0 6px">' + svg(P.list, '', 20) + '<span><b>My reviews</b><span class="small muted">' + myReviews().length + ' · search and filter</span></span>' + svg(P.chevR, '', 16) + '</button>' +
+      '<button class="aboutrow mine-link" data-act="mine" style="margin:0 0 6px">' + svg(P.list, '', 20) + '<span><b>My places</b><span class="small muted">' + myReviews().length + ' rated · ' + toVisitPlaces().length + ' to visit</span></span>' + svg(P.chevR, '', 16) + '</button>' +
       '<div class="row between"><h2>Show on map</h2>' + (nOff ? '<button class="linkbtn" data-act="showall">Show all</button>' : '') + '</div>' +
+      '<div class="dcat tvcat"><button class="dcat-main" data-act="tovisit" aria-pressed="' + !ui.tovisitOff + '"><span class="tile tvtile">' + svg(P.bookmark) + '</span><span class="dname">Places to visit <span class="small muted">' + toVisitPlaces().length + '</span></span><span class="tog" aria-hidden="true"></span></button>' +
+      (!ui.tovisitOff ? '<div class="dsubs"><button class="pill" data-act="onlytovisit" aria-pressed="' + !!ui.onlyToVisit + '">Only places to visit</button></div>' : '') + '</div>' +
       CATS.map(function (k) {
         var on = ui.cats[k[0]], subs = SUBS[k[0]];
         return '<div class="dcat"><button class="dcat-main" data-cat="' + k[0] + '" aria-pressed="' + on + '"><span class="tile c-' + k[0] + '">' + svg(ICON[k[0]]) + '</span><span class="dname">' + k[1] + '</span><span class="tog" aria-hidden="true"></span></button>' +
@@ -593,7 +603,7 @@
     var list = vis.slice(0, 40).map(function (o) {
       var p = o.p, st = stats(p.id);
       var friendsN = st.rs.filter(function (r) { return degreeOf(r.user_id) === 1; }).length;
-      var who = !st.rs.length ? (S.saves.indexOf(p.id) >= 0 ? 'On your map' : 'Not rated yet') : friendsN ? friendsN + (friendsN === 1 ? ' friend' : ' friends') : st.rs.length + (st.rs.length === 1 ? ' person' : ' people');
+      var who = !st.rs.length ? (isToVisit(p.id) ? 'To visit' : S.saves.indexOf(p.id) >= 0 ? 'On your map' : 'Not rated yet') : friendsN ? friendsN + (friendsN === 1 ? ' friend' : ' friends') : st.rs.length + (st.rs.length === 1 ? ' person' : ' people');
       return '<button class="item" data-place="' + p.id + '"><span class="tile ' + catCls(p) + '">' + svg(iconFor(p)) + '</span><span class="t"><span class="n">' + esc(p.name) + '</span><span class="small muted">' + (p.independent ? 'Independent · ' : '') + esc(kindName(p)) + ' · ' + fmtMiles(o.d) + ' · ' + who + '</span></span>' +
         (st.rs.length ? '<span class="badge' + (st.top ? ' top' : '') + '">' + st.score.toFixed(1) + '</span>' : '') + '</button>';
     }).join('');
@@ -663,7 +673,7 @@
     var saved = S.saves.indexOf(p.id) >= 0;
     var mineEd = mine ? edited(mine) : '';
     var myCard = mine ? '<div class="section card mine"><div class="row between"><span class="eyebrow">Your rating</span>' + badge(overall(mine)) + '</div>' +
-      '<span class="small muted">Visited ' + fmtDate(mine.visited_on) + ' · ' + mine.trip + (mineEd ? ' · ' + mineEd.charAt(0).toUpperCase() + mineEd.slice(1) : '') + (mine.visibility === 'me' ? ' · Only you can see it' : '') + '</span>' +
+      '<span class="small muted">Last visited ' + fmtDate(mine.visited_on) + ' · ' + mine.trip + (mineEd ? ' · ' + mineEd.charAt(0).toUpperCase() + mineEd.slice(1) : '') + (mine.visibility === 'me' ? ' · Only you can see it' : '') + '</span>' +
       '<button class="btn soft" data-act="rate">Edit or delete rating</button></div>' : '';
     var dist = ui.here ? ' · ' + fmtMiles(miles(ui.here, p)) + ' away' : '';
     return '<div class="wrap page">' +
@@ -673,7 +683,7 @@
       '<div class="section titlecard">' + titleHead(p) + (p.address ? '<span class="muted">' + esc(p.address) + dist + '</span>' : '') + favs +
       (links ? '<div class="linkchips">' + links + '</div>' : '') +
       (mine ? '<span class="onmap">' + svg(P.bookmark, '', 15) + 'On your map</span>'
-        : '<div class="row"><button class="btn ' + (saved ? 'soft' : 'ghost') + '" data-act="save" style="flex:1" aria-pressed="' + saved + '">' + svg(P.bookmark, '', 18) + (saved ? 'On your map' : 'Add to my map') + '</button><button class="btn primary" data-act="rate" style="flex:1">Rate it</button></div>') + '</div>' +
+        : '<div class="row"><button class="btn ' + (saved ? 'soft' : 'ghost') + '" data-act="save" style="flex:1" aria-pressed="' + saved + '">' + svg(P.bookmark, '', 18) + (saved ? 'On my to-visit list' : 'Save to visit') + '</button><button class="btn primary" data-act="rate" style="flex:1">Rate it</button></div>') + '</div>' +
       '<div class="section"><div class="segwide" role="group" aria-label="Whose ratings">' + degSeg + '</div>' +
       '<div class="row" style="gap:16px">' + (rs.length ? '<div class="big' + (st.top ? ' top' : '') + '">' + st.score.toFixed(1) + '</div>' : '<div class="big">–</div>') +
       '<div class="pt" style="gap:4px"><span style="font-weight:600;font-size:17px">' + (!ui.group && ui.deg === 0 ? 'Your score' : ui.group === 'friends' || (!ui.group && ui.deg === 1) ? 'Friends\' score' : 'Wider circle score') + '</span><span class="small muted">' + (rs.length ? 'From ' + rs.length + (rs.length === 1 ? ' person' : ' people') + (friendsN ? ', ' + friendsN + (friendsN === 1 ? ' friend' : ' friends') : '') : 'No ratings at this level yet. Be the first, or widen to 1st, 2nd or Public.') + '</span></div></div>' +
@@ -682,7 +692,7 @@
       (rs.length ? '<div class="section"><h2>What people said</h2><div class="list">' + said + '</div></div>' : '') +
       '<div class="section"><div class="row between"><h2>Tips</h2><button class="pill" data-act="addtip">Add a tip</button></div>' + (tips || '<p class="small muted" style="margin:0">No tips yet. Avoid the table by the door? Ask for the lunch menu? Add it.</p>') +
       (ui.tipOpen ? tipForm() : '') + '</div>' +
-      '<div class="section"><label for="noteIn" class="row" style="gap:6px;font-weight:700">' + svg(P.lock, '', 16) + 'Your note <span class="small muted" style="font-weight:500">Only you can see this</span></label><textarea id="noteIn" class="note" placeholder="e.g. Ask for the window table">' + esc(S.notes[p.id] || '') + '</textarea></div>' +
+      '<div class="section"><label for="noteIn" class="row" style="gap:6px;font-weight:700">' + svg(P.lock, '', 16) + 'Your note <span class="small muted" style="font-weight:500">Only you can see this</span></label><textarea id="noteIn" class="note" placeholder="' + (isToVisit(p.id) ? 'e.g. Recommended by Dave at work. Try the pie.' : 'e.g. Ask for the window table') + '">' + esc(S.notes[p.id] || '') + '</textarea></div>' +
       '<div class="section"><h2>Getting there</h2>' + gettingThere(p, shareText(p)) + '<button class="btn soft" data-act="share">' + svg(P.share, '', 18) + 'Send this place</button></div>' +
       (S.needsLinks ? '' : '<div class="section" id="sec-links"><div class="row between"><h2>Website and social</h2>' + (ui.linkOpen ? '' : '<button class="pill" data-act="addlink">Add a link</button>') + '</div>' +
         (links ? '' : '<p class="small muted" style="margin:0">Know their website, Instagram or Facebook? Add it for everyone.</p>') + (ui.linkOpen ? linkForm() : '') + '</div>') +
@@ -706,7 +716,8 @@
     ];
     var things = [
       [P.search, 'Search any place', 'Restaurants, pubs, hotels, shops, fuel, EV chargers and more. See results as a list or on the map, then move the map and tap Search this area.', 'search', ''],
-      [P.list, 'My reviews', 'Your own library of reviews. Search them, sort them and filter them like the map.', 'mine', ''],
+      [P.list, 'My places', 'Your own library of reviews, plus your places to visit. Search, sort and filter them like the map.', 'mine', ''],
+      [P.bookmark, 'Places to visit', 'Passed somewhere on the road, or got a tip from someone not on Vouch? Save it to visit, note who recommended it, and rate it after you go.', 'search', ''],
       [P.plus, 'Up to three categories', 'A pub that does food, a supermarket with fuel or EV charging. Pick up to three when you add a place.', 'add', ''],
       [P.bookmark, 'Save for later', 'Add a friend\'s pick to your map, then rate it when you\'ve been.', 'map', 'Tap any pin, then Add to my map'],
       [P.tag, 'Tips', 'Avoid the table by the door. Ask for the lunch menu. Loyalty schemes.', 'map', 'Tap any pin, then Add a tip'],
@@ -761,7 +772,31 @@
       high: function (a, b) { return overall(b.r) - overall(a.r); }, low: function (a, b) { return overall(a.r) - overall(b.r); }, az: function (a, b) { return a.p.name.localeCompare(b.p.name); } }[f.sort];
     return list.sort(by);
   }
+  function toVisitFiltered() {
+    var f = ui.mf, words = f.q.toLowerCase().split(/\s+/).filter(Boolean);
+    var list = toVisitPlaces().filter(function (p) {
+      if (!catOn(p, f.cats, f.subs)) return false;
+      if (f.indie && !p.independent) return false;
+      if (words.length) { var hay = [p.name, p.address, kindName(p), S.notes[p.id] || ''].join(' ').toLowerCase(); if (!words.every(function (w) { return hay.indexOf(w) >= 0; })) return false; }
+      return true;
+    });
+    if (f.sort === 'az') list.sort(function (a, b) { return a.name.localeCompare(b.name); });
+    else if (f.sort !== 'old') list.reverse();
+    return list;
+  }
+  function toVisitListHtml() {
+    var list = toVisitFiltered(), all = toVisitPlaces().length;
+    var rows = list.map(function (p) {
+      var st = stats(p.id), note = S.notes[p.id];
+      return '<button class="item" data-place="' + p.id + '"><span class="tile ' + catCls(p) + '">' + svg(iconFor(p)) + '</span><span class="t"><span class="n">' + esc(p.name) + '</span><span class="small muted">' + esc(kindName(p)) + (p.address ? ' · ' + esc(String(p.address).split(',')[0]) : '') + '</span>' +
+        (note ? '<span class="small snippet">' + svg(P.lock, '', 12) + ' ' + esc(note) + '</span>' : '') + '</span>' + (st.rs.length ? badge(st.score) : '<span class="tvmark">' + svg(P.bookmark, '', 16) + '</span>') + '</button>';
+    }).join('');
+    var head = '<div class="row between mine-count"><span class="small muted" id="mineCount">' + (list.length === all ? all + (all === 1 ? ' place' : ' places') + ' to visit' : list.length + ' of ' + all + ' places to visit') + '</span></div>';
+    return head + (rows ? '<div class="list">' + rows + '</div>'
+      : '<p class="empty">' + (all ? 'Nothing matches. Try another word, or <button class="linkbtn inline" data-mact="clear">clear the filters</button>.' : 'Nothing saved yet. Search for a place and tap Save to visit, or tap Save to visit on a friend\'s pin.') + '</p>');
+  }
   function mineListHtml() {
+    if (ui.mf.tab === 'tovisit') return toVisitListHtml();
     var list = mineFiltered(), all = myReviews().length;
     var rows = list.map(function (o) {
       var p = o.p, r = o.r;
@@ -797,8 +832,10 @@
       }).join('') +
       '<h3 class="dh">Trips</h3><div class="filters"><button class="pill" data-mact="work" aria-pressed="' + f.work + '">Work</button><button class="pill" data-mact="leisure" aria-pressed="' + f.leisure + '">Leisure</button></div>' +
       '<h3 class="dh">Only show</h3><div class="filters"><button class="pill" data-mact="indie" aria-pressed="' + f.indie + '">Independent businesses</button><button class="pill" data-mact="only" aria-pressed="' + f.only + '">Only-me reviews</button></div></div>';
-    return '<div class="wrap page"><div class="topbar"><button class="round" data-act="back" aria-label="Back">' + svg(P.back) + '</button><h2>My reviews</h2><span style="width:44px"></span></div>' +
-      '<div class="section"><div class="mine-search">' + svg(P.search, '', 18) + '<input id="mineQ" class="field" type="search" enterkeyhint="search" autocomplete="off" placeholder="Search my reviews" aria-label="Search your reviews" value="' + esc(f.q) + '"></div>' +
+    var tvTab = f.tab === 'tovisit';
+    return '<div class="wrap page"><div class="topbar"><button class="round" data-act="back" aria-label="Back">' + svg(P.back) + '</button><h2>My places</h2><span style="width:44px"></span></div>' +
+      '<div class="section"><div class="segwide" role="group" aria-label="Which places"><button data-mtab="rated" aria-pressed="' + !tvTab + '">Rated · ' + myReviews().length + '</button><button data-mtab="tovisit" aria-pressed="' + tvTab + '">To visit · ' + toVisitPlaces().length + '</button></div>' +
+      '<div class="mine-search">' + svg(P.search, '', 18) + '<input id="mineQ" class="field" type="search" enterkeyhint="search" autocomplete="off" placeholder="' + (tvTab ? 'Search places to visit and notes' : 'Search my reviews') + '" aria-label="Search" value="' + esc(f.q) + '"></div>' +
       '<div class="row" style="gap:8px;flex-wrap:wrap"><button class="pill iconpill" data-mact="open" aria-expanded="' + f.open + '">' + svg(P.filter, '', 16) + 'Filters' + (off ? ' · ' + off : '') + '</button>' +
       '<select id="mineSort" class="pill" aria-label="Sort by">' + sorts.map(function (s) { return '<option value="' + s[0] + '"' + (f.sort === s[0] ? ' selected' : '') + '>' + s[1] + '</option>'; }).join('') + '</select></div></div>' +
       (f.open ? panel : '') +
@@ -896,7 +933,7 @@
       '<form id="rateForm" class="stack" style="gap:0;padding-bottom:24px">' +
       '<div class="section"><div class="row" style="gap:12px"><span class="tile ' + catCls(p) + '">' + svg(iconFor(p)) + '</span><span class="pt"><b>' + esc(p.name) + '</b><span class="small muted">' + esc(kindName(p)) + '</span></span>' +
       (p.created_by === myId() ? '<button type="button" class="pill" data-act="editplace">Change</button>' : '') + '</div>' +
-      '<div class="row between"><label for="visitIn" class="lbl-t">Date of visit</label><input id="visitIn" type="date" class="field" style="width:auto" max="' + todayISO() + '" value="' + esc(r.visited_on) + '"></div>' +
+      '<div class="row between"><label for="visitIn" class="lbl-t">Last visited</label><input id="visitIn" type="date" class="field" style="width:auto" max="' + todayISO() + '" value="' + esc(r.visited_on) + '"></div>' +
       '<div class="row between"><span class="lbl-t">This trip was</span><span class="row" style="gap:8px"><button type="button" class="pill" data-trip="Work" aria-pressed="' + (r.trip === 'Work') + '">Work</button><button type="button" class="pill" data-trip="Leisure" aria-pressed="' + (r.trip === 'Leisure') + '">Leisure</button></span></div></div>' +
       '<div class="section"><div class="row between"><span class="lbl-t">Your scores</span><span style="font-weight:600">Overall <span style="font-family:var(--display);font-size:22px">' + overall(S.needsV6 ? { quality: r.quality, value: r.value, location: r.location } : r).toFixed(1) + '</span></span></div>' +
       '<p class="scalehint">Score each from <b>1 (worst)</b> to <b>10 (best)</b>.</p>' +
@@ -952,7 +989,8 @@
       '<div class="section titlecard">' + titleHead(r) + '<span class="muted">' + esc(r.address) + (ui.here ? ' · ' + fmtMiles(miles(ui.here, r)) + ' away' : '') + '</span>' +
       (links ? '<div class="linkchips">' + links + '</div>' : '') + '</div>' +
       '<div class="section"><div class="row" style="gap:16px"><div class="big">–</div><div class="pt" style="gap:4px"><span style="font-weight:600;font-size:17px">Not on Vouch yet</span><span class="small muted">None of your friends have rated it. Been there? Be the first.</span></div></div>' +
-      '<button class="btn primary" data-act="ratepreview">Rate this place</button></div>' +
+      '<div class="row"><button class="btn ghost" data-act="savepreview" style="flex:1"' + (ui.busy ? ' disabled' : '') + '>' + svg(P.bookmark, '', 18) + 'Save to visit</button><button class="btn primary" data-act="ratepreview" style="flex:1">Rate it</button></div>' +
+      '<span class="small muted">Haven\'t been yet? Save it to your map, add a note about who recommended it, and rate it after you go.</span></div>' +
       '<div class="section"><h2>Getting there</h2>' + gettingThere(r, r.name + ' (' + String(r.address || '').split(',')[0] + '). https://www.google.com/maps/search/?api=1&query=' + r.lat + ',' + r.lng) + '</div></div>';
   }
 
@@ -1031,7 +1069,7 @@
       '<div class="section"><div class="row" style="gap:14px"><span class="av me" style="width:64px;height:64px;border-radius:32px;font-size:20px">' + esc(initials(me.name)) + '</span><div class="stack" style="gap:2px;min-width:0"><h1 style="font-size:26px">' + esc(me.name || 'You') + '</h1><span class="small muted">' + esc(S.session.user.email || '') + '</span></div></div></div>' +
       (S.isAdmin ? '<button class="aboutrow mine-link" data-act="inbox">' + svg(P.tag, '', 20) + '<span><b>Suggestions inbox</b><span class="small muted">' + (inboxCounts().new ? inboxCounts().new + ' new to review' : 'Only you can see this') + '</span></span>' + (inboxCounts().new ? '<span class="dot static">' + inboxCounts().new + '</span>' : '') + svg(P.chevR, '', 16) + '</button>' : '') +
       '<button class="aboutrow mine-link beta-link" data-act="suggest">' + svg(P.plus, '', 20) + '<span><b>Suggest an improvement</b><span class="small muted">Beta testing: tell us what to fix or add</span></span>' + svg(P.chevR, '', 16) + '</button>' +
-      '<button class="aboutrow mine-link" data-act="mine">' + svg(P.list, '', 20) + '<span><b>My reviews</b><span class="small muted">' + myReviews().length + (myReviews().length === 1 ? ' review' : ' reviews') + ' · search and filter</span></span>' + svg(P.chevR, '', 16) + '</button>' +
+      '<button class="aboutrow mine-link" data-act="mine">' + svg(P.list, '', 20) + '<span><b>My places</b><span class="small muted">' + myReviews().length + ' rated · ' + toVisitPlaces().length + ' to visit</span></span>' + svg(P.chevR, '', 16) + '</button>' +
       '<form id="profileForm" class="section"><h2>Your profile</h2>' +
       '<div class="grid2"><div class="stack" style="gap:6px"><label for="meFirst" class="lbl-t">First name</label><input id="meFirst" class="field" maxlength="40" autocomplete="given-name" value="' + esc(me.first_name != null ? me.first_name : me.name) + '"></div>' +
       '<div class="stack" style="gap:6px"><label for="meLast" class="lbl-t">Last name</label><input id="meLast" class="field" maxlength="40" autocomplete="family-name" value="' + esc(me.last_name || '') + '"></div></div>' +
@@ -1449,6 +1487,7 @@
     }
     if (d.mcat) { ui.mf.cats[d.mcat] = !ui.mf.cats[d.mcat]; render(); return; }
     if (d.msub) { ui.mf.subs[d.msub] = ui.mf.subs[d.msub] === false; render(); return; }
+    if (d.mtab) { ui.mf.tab = d.mtab; if (d.mtab === 'tovisit' && (ui.mf.sort === 'high' || ui.mf.sort === 'low')) ui.mf.sort = 'new'; render(); return; }
     if (d.mact) {
       var m = d.mact, f = ui.mf;
       if (m === 'open') f.open = !f.open;
@@ -1507,7 +1546,9 @@
     if (d.dismiss) { var ds = store('dismissed') || []; ds.push(d.dismiss); store('dismissed', ds); renderPrompt(); return; }
     var a = d.act; if (!a) return;
     if (a === 'drawer') { ui.drawer = !ui.drawer; render(); var dt = document.querySelector(ui.drawer ? '#drawer .dcat-main' : '.drawer-tab'); if (dt) dt.focus(); return; }
-    if (a === 'showall') { CATS.forEach(function (c) { ui.cats[c[0]] = true; }); ui.subs = {}; ui.indie = false; ui.work = true; ui.leisure = true; ui.group = ''; render(); return; }
+    if (a === 'tovisit') { ui.tovisitOff = !ui.tovisitOff; if (ui.tovisitOff) ui.onlyToVisit = false; render(); return; }
+    if (a === 'onlytovisit') { ui.onlyToVisit = !ui.onlyToVisit; render(); return; }
+    if (a === 'showall') { ui.tovisitOff = false; ui.onlyToVisit = false; CATS.forEach(function (c) { ui.cats[c[0]] = true; }); ui.subs = {}; ui.indie = false; ui.work = true; ui.leisure = true; ui.group = ''; render(); return; }
     if (a === 'about') { ui.aboutFrom = ui.view; ui.aboutFirst = false; go('about'); return; }
     if (a === 'aboutback') {
       var from = ui.aboutFrom;
@@ -1539,6 +1580,24 @@
     else if (a === 'indie') { ui.indie = !ui.indie; render(); }
     else if (a === 'near') { locate(function () { if (map) { showMe(); map.setView([ui.here.lat, ui.here.lng], Math.max(map.getZoom(), 14)); } render(); }); }
     else if (a === 'search') { ui.searchMap = false; ui.add = { q: '', results: [], form: null, mode: 'browse' }; go('add'); var si = $('searchIn'); if (si) si.focus(); }
+    else if (a === 'savepreview') {
+      var pv = ui.preview; if (!pv || S.needsUpdate) return toast('Run the database update first');
+      ui.busy = true; render();
+      var prow = { name: pv.name, category: pv.category, subcategory: pv.subcategory || '', address: pv.address || '', independent: !!pv.independent, lat: pv.lat, lng: pv.lng, osm_id: pv.osm_id || null, created_by: myId() };
+      if (!S.needsCats && pv.extra && pv.extra.length) prow.extra = pv.extra;
+      var pi = await sb.from('places').insert(prow).select().single();
+      var np = pi.data;
+      if (pi.error) {
+        if (pv.osm_id && /duplicate|unique/i.test(pi.error.message)) { await loadAll(); np = S.places.filter(function (x) { return x.osm_id === pv.osm_id; })[0]; }
+        if (!np) { ui.busy = false; render(); return fail(pi.error, 'Could not save the place'); }
+      } else S.places.push(np);
+      if (!S.needsLinks && pv.links && pv.links.length && !pi.error) {
+        for (var pl = 0; pl < pv.links.length; pl++) { var plq = await sb.from('place_links').insert({ place_id: np.id, user_id: myId(), kind: pv.links[pl].kind, url: pv.links[pl].url }).select().single(); if (!plq.error && plq.data) S.links.push(plq.data); }
+      }
+      if (S.saves.indexOf(np.id) < 0) { var psq = await sb.from('saves').insert({ user_id: myId(), place_id: np.id }); if (!psq.error) S.saves.push(np.id); }
+      ui.busy = false; go('place', { place: np.id });
+      toast('Saved to your places to visit. Add a note below if someone recommended it.');
+    }
     else if (a === 'ratepreview') { ui.add.mode = 'rate'; ui.add.form = ui.preview; go('add'); }
     else if (a === 'back') { var to = ui.view === 'editplace' ? 'place' : ui.view === 'preview' ? (ui.prev === 'map' && ui.searchMap ? 'map' : 'add') : ui.view === 'rate' ? 'place' : ui.view === 'person' && ui.prev === 'place' ? 'place' : ui.view === 'person' && ui.prev === 'friends' ? 'friends' : ui.view === 'mine' ? (ui.mineFrom === 'map' ? 'map' : 'me') : ui.view === 'suggest' || ui.view === 'inbox' ? 'me' : ui.view === 'place' && (ui.placeFrom === 'mine' || ui.placeFrom === 'me') ? ui.placeFrom : 'map'; if (to === 'place' && !place(ui.place)) to = 'map'; go(to); }
     else if (a === 'rate') { startRate(ui.place); }
@@ -1550,7 +1609,7 @@
       var sq = isSaved ? await sb.from('saves').delete().eq('user_id', myId()).eq('place_id', sp) : await sb.from('saves').insert({ user_id: myId(), place_id: sp });
       if (sq.error) return fail(sq.error, S.needsUpdate ? 'Run the database update first' : 'Could not save');
       if (isSaved) S.saves = S.saves.filter(function (x) { return x !== sp; }); else S.saves.push(sp);
-      render(); toast(isSaved ? 'Removed from your map' : 'Added to your map. Rate it when you\'ve been.');
+      render(); toast(isSaved ? 'Removed from your map' : 'Saved to your places to visit. Rate it when you\'ve been.');
     }
     else if (a === 'editplace') { if (ui.view === 'rate' && ui.rate) ui.place = ui.rate.place_id; ui.confirm = null; go('editplace'); }
     else if (a === 'delplace') { ui.confirm = 'delplace'; render(); }
