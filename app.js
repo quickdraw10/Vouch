@@ -683,7 +683,7 @@
       '<div class="section titlecard">' + titleHead(p) + (p.address ? '<span class="muted">' + esc(p.address) + dist + '</span>' : '') + favs +
       (links ? '<div class="linkchips">' + links + '</div>' : '') +
       (mine ? '<span class="onmap">' + svg(P.bookmark, '', 15) + 'On your map</span>'
-        : '<div class="row"><button class="btn ' + (saved ? 'soft' : 'ghost') + '" data-act="save" style="flex:1" aria-pressed="' + saved + '">' + svg(P.bookmark, '', 18) + (saved ? 'On my to-visit list' : 'Save to visit') + '</button><button class="btn primary" data-act="rate" style="flex:1">Rate it</button></div>') + '</div>' +
+        : '<div class="row"><button class="btn ' + (saved ? 'soft' : 'ghost') + '" data-act="save" style="flex:1" aria-pressed="' + saved + '">' + svg(P.bookmark, '', 18) + (saved ? 'Pinned for later' : 'Pin for later') + '</button><button class="btn primary" data-act="rate" style="flex:1">Rate it</button></div>') + '</div>' +
       '<div class="section"><div class="segwide" role="group" aria-label="Whose ratings">' + degSeg + '</div>' +
       '<div class="row" style="gap:16px">' + (rs.length ? '<div class="big' + (st.top ? ' top' : '') + '">' + st.score.toFixed(1) + '</div>' : '<div class="big">–</div>') +
       '<div class="pt" style="gap:4px"><span style="font-weight:600;font-size:17px">' + (!ui.group && ui.deg === 0 ? 'Your score' : ui.group === 'friends' || (!ui.group && ui.deg === 1) ? 'Friends\' score' : 'Wider circle score') + '</span><span class="small muted">' + (rs.length ? 'From ' + rs.length + (rs.length === 1 ? ' person' : ' people') + (friendsN ? ', ' + friendsN + (friendsN === 1 ? ' friend' : ' friends') : '') : 'No ratings at this level yet. Be the first, or widen to 1st, 2nd or Public.') + '</span></div></div>' +
@@ -717,7 +717,7 @@
     var things = [
       [P.search, 'Search any place', 'Restaurants, pubs, hotels, shops, fuel, EV chargers and more. See results as a list or on the map, then move the map and tap Search this area.', 'search', ''],
       [P.list, 'My places', 'Your own library of reviews, plus your places to visit. Search, sort and filter them like the map.', 'mine', ''],
-      [P.bookmark, 'Places to visit', 'Passed somewhere on the road, or got a tip from someone not on Vouch? Save it to visit, note who recommended it, and rate it after you go.', 'search', ''],
+      [P.bookmark, 'Places to visit', 'Passed somewhere on the road, or got a tip from someone not on Vouch? Pin it for later, note who recommended it, and rate it after you go.', 'search', ''],
       [P.plus, 'Up to three categories', 'A pub that does food, a supermarket with fuel or EV charging. Pick up to three when you add a place.', 'add', ''],
       [P.bookmark, 'Save for later', 'Add a friend\'s pick to your map, then rate it when you\'ve been.', 'map', 'Tap any pin, then Add to my map'],
       [P.tag, 'Tips', 'Avoid the table by the door. Ask for the lunch menu. Loyalty schemes.', 'map', 'Tap any pin, then Add a tip'],
@@ -793,7 +793,7 @@
     }).join('');
     var head = '<div class="row between mine-count"><span class="small muted" id="mineCount">' + (list.length === all ? all + (all === 1 ? ' place' : ' places') + ' to visit' : list.length + ' of ' + all + ' places to visit') + '</span></div>';
     return head + (rows ? '<div class="list">' + rows + '</div>'
-      : '<p class="empty">' + (all ? 'Nothing matches. Try another word, or <button class="linkbtn inline" data-mact="clear">clear the filters</button>.' : 'Nothing saved yet. Search for a place and tap Save to visit, or tap Save to visit on a friend\'s pin.') + '</p>');
+      : '<p class="empty">' + (all ? 'Nothing matches. Try another word, or <button class="linkbtn inline" data-mact="clear">clear the filters</button>.' : 'Nothing saved yet. Search for a place and tap Pin for later, or tap Pin for later on a friend\'s pin.') + '</p>');
   }
   function mineListHtml() {
     if (ui.mf.tab === 'tovisit') return toVisitListHtml();
@@ -989,8 +989,8 @@
       '<div class="section titlecard">' + titleHead(r) + '<span class="muted">' + esc(r.address) + (ui.here ? ' · ' + fmtMiles(miles(ui.here, r)) + ' away' : '') + '</span>' +
       (links ? '<div class="linkchips">' + links + '</div>' : '') + '</div>' +
       '<div class="section"><div class="row" style="gap:16px"><div class="big">–</div><div class="pt" style="gap:4px"><span style="font-weight:600;font-size:17px">Not on Vouch yet</span><span class="small muted">None of your friends have rated it. Been there? Be the first.</span></div></div>' +
-      '<div class="row"><button class="btn ghost" data-act="savepreview" style="flex:1"' + (ui.busy ? ' disabled' : '') + '>' + svg(P.bookmark, '', 18) + 'Save to visit</button><button class="btn primary" data-act="ratepreview" style="flex:1">Rate it</button></div>' +
-      '<span class="small muted">Haven\'t been yet? Save it to your map, add a note about who recommended it, and rate it after you go.</span></div>' +
+      '<div class="row"><button class="btn ghost" data-act="savepreview" style="flex:1"' + (ui.busy ? ' disabled' : '') + '>' + svg(P.bookmark, '', 18) + 'Pin for later</button><button class="btn primary" data-act="ratepreview" style="flex:1">Rate it</button></div>' +
+      '<span class="small muted">Haven\'t been yet? Pin it for later, add a note about who recommended it, and rate it after you go.</span></div>' +
       '<div class="section"><h2>Getting there</h2>' + gettingThere(r, r.name + ' (' + String(r.address || '').split(',')[0] + '). https://www.google.com/maps/search/?api=1&query=' + r.lat + ',' + r.lng) + '</div></div>';
   }
 
@@ -1596,7 +1596,7 @@
       }
       if (S.saves.indexOf(np.id) < 0) { var psq = await sb.from('saves').insert({ user_id: myId(), place_id: np.id }); if (!psq.error) S.saves.push(np.id); }
       ui.busy = false; go('place', { place: np.id });
-      toast('Saved to your places to visit. Add a note below if someone recommended it.');
+      toast('Pinned for later. Add a note below if someone recommended it.');
     }
     else if (a === 'ratepreview') { ui.add.mode = 'rate'; ui.add.form = ui.preview; go('add'); }
     else if (a === 'back') { var to = ui.view === 'editplace' ? 'place' : ui.view === 'preview' ? (ui.prev === 'map' && ui.searchMap ? 'map' : 'add') : ui.view === 'rate' ? 'place' : ui.view === 'person' && ui.prev === 'place' ? 'place' : ui.view === 'person' && ui.prev === 'friends' ? 'friends' : ui.view === 'mine' ? (ui.mineFrom === 'map' ? 'map' : 'me') : ui.view === 'suggest' || ui.view === 'inbox' ? 'me' : ui.view === 'place' && (ui.placeFrom === 'mine' || ui.placeFrom === 'me') ? ui.placeFrom : 'map'; if (to === 'place' && !place(ui.place)) to = 'map'; go(to); }
@@ -1609,7 +1609,7 @@
       var sq = isSaved ? await sb.from('saves').delete().eq('user_id', myId()).eq('place_id', sp) : await sb.from('saves').insert({ user_id: myId(), place_id: sp });
       if (sq.error) return fail(sq.error, S.needsUpdate ? 'Run the database update first' : 'Could not save');
       if (isSaved) S.saves = S.saves.filter(function (x) { return x !== sp; }); else S.saves.push(sp);
-      render(); toast(isSaved ? 'Removed from your map' : 'Saved to your places to visit. Rate it when you\'ve been.');
+      render(); toast(isSaved ? 'Removed from your map' : 'Pinned for later. Rate it when you\'ve been.');
     }
     else if (a === 'editplace') { if (ui.view === 'rate' && ui.rate) ui.place = ui.rate.place_id; ui.confirm = null; go('editplace'); }
     else if (a === 'delplace') { ui.confirm = 'delplace'; render(); }
