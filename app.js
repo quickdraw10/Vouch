@@ -571,6 +571,7 @@
     }).join('');
     return '<div class="mapbox"><div id="map" aria-label="Map of search results"></div>' +
       '<div class="map-top wrap"><div class="row"><button class="searchbar" data-act="searchlist" aria-label="Back to the list of results">' + svg(P.search, '', 18) + '<span class="q">' + esc((ui.add || {}).q || '') + '</span></button>' +
+      '<button class="fab" data-act="near" aria-label="Go to my location">' + svg(P.near) + '</button>' +
       '<button class="fab" data-act="searchclear" aria-label="Clear search">' + svg(P.close) + '</button></div>' +
       (ui.areaMoved || (ui.add || {}).searching ? '<div class="row areawrap"><button class="areabtn" data-act="searcharea"' + ((ui.add || {}).searching ? ' disabled' : '') + '>' + svg(P.search, '', 16) + ((ui.add || {}).searching ? 'Searching…' : 'Search this area') + '</button></div>' : '') +
       '</div></div>' +
@@ -683,7 +684,7 @@
       '<div class="section titlecard">' + titleHead(p) + (p.address ? '<span class="muted">' + esc(p.address) + dist + '</span>' : '') + favs +
       (links ? '<div class="linkchips">' + links + '</div>' : '') +
       (mine ? '<span class="onmap">' + svg(P.bookmark, '', 15) + 'On your map</span>'
-        : '<div class="row"><button class="btn ' + (saved ? 'soft' : 'ghost') + '" data-act="save" style="flex:1" aria-pressed="' + saved + '">' + svg(P.bookmark, '', 18) + (saved ? 'Pinned for later' : 'Pin for later') + '</button><button class="btn primary" data-act="rate" style="flex:1">Rate it</button></div>') + '</div>' +
+        : '<div class="row"><button class="btn ' + (saved ? 'pinned' : 'ghost') + '" data-act="save" style="flex:1" aria-pressed="' + saved + '">' + svg(P.bookmark, '', 18) + (saved ? 'Pinned for later' : 'Pin for later') + '</button><button class="btn primary" data-act="rate" style="flex:1">Rate it</button></div>') + '</div>' +
       '<div class="section"><div class="segwide" role="group" aria-label="Whose ratings">' + degSeg + '</div>' +
       '<div class="row" style="gap:16px">' + (rs.length ? '<div class="big' + (st.top ? ' top' : '') + '">' + st.score.toFixed(1) + '</div>' : '<div class="big">–</div>') +
       '<div class="pt" style="gap:4px"><span style="font-weight:600;font-size:17px">' + (!ui.group && ui.deg === 0 ? 'Your score' : ui.group === 'friends' || (!ui.group && ui.deg === 1) ? 'Friends\' score' : 'Wider circle score') + '</span><span class="small muted">' + (rs.length ? 'From ' + rs.length + (rs.length === 1 ? ' person' : ' people') + (friendsN ? ', ' + friendsN + (friendsN === 1 ? ' friend' : ' friends') : '') : 'No ratings at this level yet. Be the first, or widen to 1st, 2nd or Public.') + '</span></div></div>' +
@@ -1578,7 +1579,20 @@
     else if (a === 'newlink') { ui.keepAuth = true; ui.recovery = false; ui.passError = ''; ui.mode = 'reset'; ui.view = 'signin'; try { await sb.auth.signOut(); } catch (e3) {} render(); }
     else if (a === 'work' || a === 'leisure') { ui[a] = !ui[a]; if (!ui.work && !ui.leisure) ui[a === 'work' ? 'leisure' : 'work'] = true; render(); }
     else if (a === 'indie') { ui.indie = !ui.indie; render(); }
-    else if (a === 'near') { locate(function () { if (map) { showMe(); map.setView([ui.here.lat, ui.here.lng], Math.max(map.getZoom(), 14)); } render(); }); }
+    else if (a === 'near') {
+      locate(function () {
+        if (!map) { render(); return; }
+        showMe();
+        if (ui.searchMap && ui.add && ui.add.q) {
+          // Searching for a common name? Jump to you and look again around here.
+          map.setView([ui.here.lat, ui.here.lng], 12, { animate: false });
+          var nb = map.getBounds(); ui.areaMoved = false;
+          searchPlaces(ui.add.q, { w: nb.getWest(), n: nb.getNorth(), e: nb.getEast(), s: nb.getSouth() });
+          return;
+        }
+        map.setView([ui.here.lat, ui.here.lng], Math.max(map.getZoom(), 14)); render();
+      });
+    }
     else if (a === 'search') { ui.searchMap = false; ui.add = { q: '', results: [], form: null, mode: 'browse' }; go('add'); var si = $('searchIn'); if (si) si.focus(); }
     else if (a === 'savepreview') {
       var pv = ui.preview; if (!pv || S.needsUpdate) return toast('Run the database update first');
