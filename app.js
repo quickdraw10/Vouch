@@ -114,7 +114,7 @@
 
   // ---------- State ----------
   var sb = null;
-  var S = { session: null, me: null, friends: [], following: [], followers: [], saves: [], needsUpdate: false, places: [], reviews: [], tips: [], best: [], photos: [], notes: {}, groups: [], members: [], people: {}, links: [], needsLinks: false, needsCats: false, needsV6: false, silenced: [], needsV7: false, isAdmin: false, mySugg: [], inbox: [] };
+  var S = { session: null, me: null, friends: [], following: [], followers: [], saves: [], needsUpdate: false, places: [], reviews: [], tips: [], best: [], photos: [], notes: {}, groups: [], members: [], people: {}, links: [], needsLinks: false, needsCats: false, needsV6: false, silenced: [], needsV7: false, isAdmin: false, mySugg: [], inbox: [], hygiene: {}, needsV8: false };
   var ui = {
     view: 'loading', place: null, person: null, cats: {}, subs: {}, drawer: false, deg: 1, indie: false, work: true, leisure: true, group: '',
     mf: null, rate: null, add: null, email: '', mode: 'signin', recovery: false, busy: false, confirm: null, here: null, sheetClosed: false
@@ -291,6 +291,10 @@
     S.needsV6 = !!(sl.error || ex6.error);
     S.silenced = sl.error ? [] : sl.data.map(function (x) { return x.target; });
     await loadSuggestions();
+    var hy; try { hy = await sb.from('place_hygiene').select('*'); } catch (e) { hy = { error: e }; }
+    S.needsV8 = !!hy.error; S.hygiene = {};
+    if (!hy.error && hy.data) hy.data.forEach(function (h) { S.hygiene[h.place_id] = h; });
+    setTimeout(hygieneBackfill, 2500);
     if (S.needsUpdate) { S.friends = out; S.following = []; S.followers = []; }
     else {
       S.friends = out.filter(function (id) { return inc.indexOf(id) >= 0; });
@@ -543,6 +547,7 @@
     if (S.needsCats) u.push('005_extra_categories.sql');
     if (S.needsV6) u.push('006_silence_experience.sql');
     if (S.needsV7) u.push('007_suggestions.sql');
+    if (S.needsV8) u.push('008_food_hygiene.sql');
     return u;
   }
   // Search results shown on the map: places already on Vouch, then new ones.
@@ -683,12 +688,14 @@
         return '<div class="photos hero">' + tile(photos[0]) + '</div>' + (photos.length > 1 ? '<div class="pstrip" aria-label="' + photos.length + ' photos">' + photos.slice(1).map(tile).join('') + '</div>' : ''); })() : '') +
       '<div class="section titlecard">' + titleHead(p) + (p.address ? '<span class="muted">' + esc(p.address) + dist + '</span>' : '') + favs +
       (links ? '<div class="linkchips">' + links + '</div>' : '') +
+      hygieneCard(p) +
       (mine ? '<span class="onmap">' + svg(P.bookmark, '', 15) + 'On your map</span>'
         : '<div class="row"><button class="btn ' + (saved ? 'pinned' : 'ghost') + '" data-act="save" style="flex:1" aria-pressed="' + saved + '">' + svg(P.bookmark, '', 18) + (saved ? 'Pinned for later' : 'Pin for later') + '</button><button class="btn primary" data-act="rate" style="flex:1">Rate it</button></div>') + '</div>' +
       '<div class="section"><div class="segwide" role="group" aria-label="Whose ratings">' + degSeg + '</div>' +
       '<div class="row" style="gap:16px">' + (rs.length ? '<div class="big' + (st.top ? ' top' : '') + '">' + st.score.toFixed(1) + '</div>' : '<div class="big">–</div>') +
       '<div class="pt" style="gap:4px"><span style="font-weight:600;font-size:17px">' + (!ui.group && ui.deg === 0 ? 'Your score' : ui.group === 'friends' || (!ui.group && ui.deg === 1) ? 'Friends\' score' : 'Wider circle score') + '</span><span class="small muted">' + (rs.length ? 'From ' + rs.length + (rs.length === 1 ? ' person' : ' people') + (friendsN ? ', ' + friendsN + (friendsN === 1 ? ' friend' : ' friends') : '') : 'No ratings at this level yet. Be the first, or widen to 1st, 2nd or Public.') + '</span></div></div>' +
       (rs.length ? bars + '<span class="small muted">Scores out of 10. 10 is best, 1 is worst.</span>' : '') + '</div>' +
+      hygPickerHtml() +
       myCard +
       (rs.length ? '<div class="section"><h2>What people said</h2><div class="list">' + said + '</div></div>' : '') +
       '<div class="section"><div class="row between"><h2>Tips</h2><button class="pill" data-act="addtip">Add a tip</button></div>' + (tips || '<p class="small muted" style="margin:0">No tips yet. Avoid the table by the door? Ask for the lunch menu? Add it.</p>') +
@@ -722,6 +729,7 @@
       [P.plus, 'Up to three categories', 'A pub that does food, a supermarket with fuel or EV charging. Pick up to three when you add a place.', 'add', ''],
       [P.bookmark, 'Save for later', 'Add a friend\'s pick to your map, then rate it when you\'ve been.', 'map', 'Tap any pin, then Add to my map'],
       [P.tag, 'Tips', 'Avoid the table by the door. Ask for the lunch menu. Loyalty schemes.', 'map', 'Tap any pin, then Add a tip'],
+      [P.tag, 'Food hygiene ratings', 'Places that serve or sell food show their official Food Standards Agency rating and inspection date, added automatically.', 'map', 'Open a pub, café or restaurant'],
       [P.globe, 'Website and social', 'Add a place\'s website or Instagram, or link your own post.', 'map', 'Tap any pin, then Add a link'],
       [P.near, 'Directions', 'Open in Apple Maps, Google Maps or Waze, or send it on WhatsApp.', 'map', 'Tap any pin, then see Getting there'],
       [P.friends, 'Friends you approve', 'New requests wait in To be approved until you say yes. Silence a friend to hide their reviews without unfriending.', 'friends:requests', ''],
@@ -1108,6 +1116,71 @@
       '<button class="tab" data-tab="me"' + cur(['me', 'mine', 'suggest', 'inbox']) + '>' + svg(P.me) + 'Me' + (S.isAdmin && inboxCounts().new ? '<span class="dot" aria-label="' + inboxCounts().new + ' new suggestions">' + inboxCounts().new + '</span>' : '') + '</button></div>';
   }
 
+  // ---------- Food hygiene ratings (Food Standards Agency) ----------
+  var FOOD_SHOPS = ['supermarket', 'convenience', 'bakery', 'butcher', 'greengrocer', 'fishmonger', 'deli', 'wine', 'market'];
+  var HYG_TEXT = { '5': 'Very good', '4': 'Good', '3': 'Generally satisfactory', '2': 'Improvement necessary', '1': 'Major improvement necessary', '0': 'Urgent improvement necessary',
+    'Pass': 'Pass', 'Pass and Eat Safe': 'Pass and Eat Safe', 'Improvement Required': 'Improvement required', 'AwaitingInspection': 'Awaiting inspection', 'Awaiting Inspection': 'Awaiting inspection',
+    'AwaitingPublication': 'Awaiting publication', 'Exempt': 'Exempt' };
+  function hygieneEligible(p) {
+    if (!p || S.needsV8 || p.lat < 49.8 || p.lat > 60.95 || p.lng < -8.7 || p.lng > 1.9) return false;
+    return allCats(p).some(function (c) { return c.category === 'eat' || c.category === 'drink' || c.category === 'stay' || (c.category === 'shop' && FOOD_SHOPS.indexOf(c.subcategory) >= 0); });
+  }
+  var hygPending = {};
+  async function ensureHygiene(pid, force) {
+    var p = place(pid); if (!hygieneEligible(p) || hygPending[pid]) return;
+    var h = S.hygiene[pid];
+    if (h && !force && Date.now() - new Date(h.checked_at).getTime() < 30 * 864e5) return;
+    hygPending[pid] = true;
+    try {
+      var q = await sb.rpc('fsa_lookup', { pid: pid, force: !!force });
+      if (!q.error && q.data) {
+        S.hygiene[pid] = Array.isArray(q.data) ? q.data[0] : q.data;
+        if (ui.view === 'place' && ui.place === pid && !(document.activeElement && document.activeElement.matches('input, textarea, select'))) render();
+      }
+    } catch (e) { console.warn('hygiene lookup', e); }
+    hygPending[pid] = false;
+  }
+  // Quietly fill in ratings for places on your map, a few at a time.
+  var hygBackfilled = 0;
+  async function hygieneBackfill() {
+    if (S.needsV8 || !S.me) return;
+    var ids = S.places.filter(function (p) { return !S.hygiene[p.id] && hygieneEligible(p) && (S.saves.indexOf(p.id) >= 0 || stats(p.id).rs.length); }).map(function (p) { return p.id; });
+    for (var i = 0; i < ids.length && hygBackfilled < 20; i++) {
+      hygBackfilled++;
+      await ensureHygiene(ids[i]);
+      await new Promise(function (r) { setTimeout(r, 1200); });
+    }
+  }
+  function hygieneCard(p) {
+    if (!hygieneEligible(p)) return '';
+    var h = S.hygiene[p.id];
+    if (!h) return '<div class="hygiene loading"><span class="hyg-score">…</span><span class="pt"><b>Food hygiene rating</b><span class="small muted">Checking with the Food Standards Agency…</span></span></div>';
+    var canFix = p.created_by === myId() || S.reviews.some(function (r) { return r.place_id === p.id && r.user_id === myId(); });
+    var fix = canFix ? '<button class="linkbtn hygfix" data-act="hygfix">' + (h.matched ? 'Not the right business?' : 'Find it') + '</button>' : '';
+    if (!h.matched) return '<div class="hygiene none"><span class="hyg-score">–</span><span class="pt"><b>Food hygiene rating</b><span class="small muted">' + (h.manual ? 'Not listed with the Food Standards Agency.' : 'No matching business found nearby.') + '</span></span>' + fix + '</div>';
+    var r = String(h.rating || ''), num = /^[0-5]$/.test(r);
+    var cls = num ? (r >= '4' ? 'good' : r === '3' ? 'ok' : 'bad') : (/^Pass/.test(r) ? 'good' : /Improvement/.test(r) ? 'bad' : 'neutral');
+    var label = HYG_TEXT[r] || r || 'Not yet rated';
+    return '<a class="hygiene" href="https://ratings.food.gov.uk/business/' + encodeURIComponent(h.fhrs_id) + '" target="_blank" rel="noopener noreferrer">' +
+      '<span class="hyg-score ' + cls + '">' + (num ? r : /^Pass/.test(r) ? svg(P.check || '<path d="M5 12.5l4.5 4.5L19 7.5"/>', '', 20) : '–') + '</span>' +
+      '<span class="pt"><b>Food hygiene: ' + esc(label) + '</b><span class="small muted">' + (h.rating_date ? 'Inspected ' + fmtDate(h.rating_date) + ' · ' : '') + 'Food Standards Agency' +
+      (h.business_name && _norm(h.business_name) !== _norm(p.name) ? ' · listed as ' + esc(h.business_name) : '') + '</span></span>' + svg(P.chevR, '', 16) + '</a>' + fix;
+  }
+  function _norm(s) { return String(s || '').toLowerCase().replace(/&/g, 'and').replace(/[^a-z0-9]/g, '').replace(/^the/, ''); }
+  function hygPickerHtml() {
+    var hp = ui.hygPick; if (!hp) return '';
+    if (hp.loading) return '<div class="section"><p class="small muted" style="margin:0">Looking up food businesses near this pin…</p></div>';
+    var rows = (hp.list || []).map(function (c) {
+      var r = String(c.rating || '');
+      return '<button class="item" data-hygpick="' + c.fhrs_id + '"><span class="hyg-score sm ' + (/^[45]$/.test(r) || /^Pass/.test(r) ? 'good' : r === '3' ? 'ok' : /^[0-2]$/.test(r) || /Improvement/.test(r) ? 'bad' : 'neutral') + '">' + (/^[0-5]$/.test(r) ? r : '–') + '</span>' +
+        '<span class="t"><span class="n">' + esc(c.business_name) + '</span><span class="small muted">' + esc([c.address, c.postcode].filter(Boolean).join(', ')) + ' · ' + ((c.distance || 0) < 0.1 ? Math.max(10, Math.round((c.distance || 0) * 1760 / 10) * 10) + ' yards' : (Math.round(c.distance * 10) / 10) + ' mi') + '</span></span></button>';
+    }).join('');
+    return '<div class="section" id="sec-hygpick"><div class="row between"><h2>Which business is it?</h2><button class="linkbtn" data-act="hygcancel">Cancel</button></div>' +
+      '<p class="small muted" style="margin:0">Food businesses registered within 0.3 miles of this pin.</p>' +
+      (rows ? '<div class="list">' + rows + '</div>' : '<p class="small muted" style="margin:0">' + (hp.error ? esc(hp.error) : 'None found nearby.') + '</p>') +
+      '<button class="btn ghost" data-hygpick="none">None of these</button></div>';
+  }
+
   function render() {
     applyTheme();
     if (map && ui.view !== 'map') { saveView(); try { map.off(); map.stop(); map.remove(); } catch (e) { console.warn(e); } map = null; markerLayer = null; meMarker = null; tileLayer = null; }
@@ -1138,6 +1211,7 @@
       app.innerHTML = h;
     }
     renderTabs();
+    if (ui.view === 'place' && ui.place) setTimeout(function () { ensureHygiene(ui.place); }, 0);
     renderPrompt();
   }
   function renderPrompt() {
@@ -1320,6 +1394,7 @@
     if (notePending) flushNote();
     if (extra) for (var k in extra) ui[k] = extra[k];
     if (view !== 'person') ui.confirm = null;
+    if (view !== 'place' || (extra && extra.place && extra.place !== ui.place)) ui.hygPick = null;
     if (view !== 'place') { ui.tipOpen = false; ui.linkOpen = false; ui.bestPick = false; }
     ui.prev = ui.view === view ? ui.prev : ui.view;
     if (view === 'place' && ['rate', 'editplace', 'place', 'person'].indexOf(ui.view) < 0) ui.placeFrom = ui.view;
@@ -1525,6 +1600,12 @@
       try { await sb.storage.from('photos').remove([ph.path]); } catch (e) {}
       S.photos = S.photos.filter(function (x) { return x.id !== ph.id; }); render(); toast('Photo deleted'); return;
     }
+    if (d.hygpick) {
+      var hq = await sb.rpc('fsa_choose', { pid: ui.place, fhrs: d.hygpick === 'none' ? null : Number(d.hygpick) });
+      if (hq.error) return fail(hq.error, 'Could not save that');
+      S.hygiene[ui.place] = Array.isArray(hq.data) ? hq.data[0] : hq.data; ui.hygPick = null; render();
+      toast(d.hygpick === 'none' ? 'Saved: not listed with the Food Standards Agency' : 'Food hygiene rating updated'); return;
+    }
     if (d.dellink) { var dl = await sb.from('place_links').delete().eq('id', d.dellink); if (dl.error) return fail(dl.error); await refresh(); toast('Link removed'); return; }
     if (d.tab) { ui.searchMap = false; if (d.tab === 'add') { ui.add = { q: '', results: [], form: null, mode: 'rate' }; } ui.groupEdit = null; go(d.tab); if (d.tab === 'map' || d.tab === 'friends') refreshQuietly(); return; }
     if (d.score) { syncRate(); var s = d.score.split(':'); ui.rate[s[0]] = Number(s[1]); render(); return; }
@@ -1569,6 +1650,14 @@
       return;
     }
     if (a === 'mine') { ui.mineFrom = ui.view === 'map' ? 'map' : 'me'; ui.drawer = false; go('mine'); return; }
+    if (a === 'hygfix') {
+      var hpid = ui.place; ui.hygPick = { loading: true }; render();
+      var hc = await sb.rpc('fsa_candidates', { pid: hpid });
+      if (ui.place !== hpid) return;
+      ui.hygPick = hc.error ? { list: [], error: 'Could not reach the Food Standards Agency. Try again later.' } : { list: hc.data || [] };
+      render(); var hs = $('sec-hygpick'); if (hs) hs.scrollIntoView({ block: 'start' }); return;
+    }
+    if (a === 'hygcancel') { ui.hygPick = null; render(); return; }
     if (a === 'searchmap') { ui.searchMap = true; ui.areaMoved = false; go('map'); return; }
     if (a === 'searcharea') { if (!map || !ui.add) return; var bx = map.getBounds(); ui.areaMoved = false; searchPlaces(ui.add.q, { w: bx.getWest(), n: bx.getNorth(), e: bx.getEast(), s: bx.getSouth() }); return; }
     if (a === 'searchlist') { ui.searchMap = false; go('add'); return; }
@@ -1609,7 +1698,7 @@
         for (var pl = 0; pl < pv.links.length; pl++) { var plq = await sb.from('place_links').insert({ place_id: np.id, user_id: myId(), kind: pv.links[pl].kind, url: pv.links[pl].url }).select().single(); if (!plq.error && plq.data) S.links.push(plq.data); }
       }
       if (S.saves.indexOf(np.id) < 0) { var psq = await sb.from('saves').insert({ user_id: myId(), place_id: np.id }); if (!psq.error) S.saves.push(np.id); }
-      ui.busy = false; go('place', { place: np.id });
+      ui.busy = false; go('place', { place: np.id }); ensureHygiene(np.id);
       toast('Pinned for later. Add a note below if someone recommended it.');
     }
     else if (a === 'ratepreview') { ui.add.mode = 'rate'; ui.add.form = ui.preview; go('add'); }
@@ -1793,7 +1882,7 @@
         if (f.osm_id && /duplicate|unique/i.test(ins.error.message)) { await loadAll(); var ex = S.places.filter(function (p) { return p.osm_id === f.osm_id; })[0]; if (ex) return startRate(ex.id); }
         return fail(ins.error, 'Could not add the place');
       }
-      S.places.push(ins.data); ui.place = ins.data.id;
+      S.places.push(ins.data); ui.place = ins.data.id; ensureHygiene(ins.data.id);
       if (!S.needsLinks && f.links && f.links.length) {
         for (var li = 0; li < f.links.length; li++) {
           var lq = await sb.from('place_links').insert({ place_id: ins.data.id, user_id: myId(), kind: f.links[li].kind, url: f.links[li].url }).select().single();

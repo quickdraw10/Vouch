@@ -512,6 +512,18 @@ html, body { height: 100%; overflow: hidden; overscroll-behavior: none; }
 /* Pinned for later: gold, so it's obvious at a glance */
 .btn.pinned { background: var(--fav); color: #102347; box-shadow: none; }
 .btn.pinned svg { fill: currentColor; }
+
+/* Food hygiene rating */
+.hygiene { display: flex; align-items: center; gap: 12px; padding: 12px; border-radius: 16px; background: var(--surface); color: var(--text); text-decoration: none; }
+.hygiene .pt b { font-size: 15px; }
+.hyg-score { flex: 0 0 auto; width: 42px; height: 42px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-family: var(--display); font-weight: 700; font-size: 22px; background: var(--card); color: var(--text2); box-shadow: inset 0 0 0 1px var(--line); }
+.hyg-score.sm { width: 34px; height: 34px; font-size: 17px; border-radius: 10px; }
+.hyg-score.good { background: #1E7A46; color: #FFFFFF; box-shadow: none; }
+.hyg-score.ok { background: #B7791F; color: #FFFFFF; box-shadow: none; }
+.hyg-score.bad { background: #B42318; color: #FFFFFF; box-shadow: none; }
+.hygiene.loading .hyg-score { animation: hygpulse 1.2s ease-in-out infinite; }
+@keyframes hygpulse { 50% { opacity: 0.4; } }
+.hygfix { align-self: flex-start; margin-top: -6px; font-size: 13px; }
 </style>
 </head>
 <body>
